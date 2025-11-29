@@ -1,30 +1,99 @@
-import { Product, Coupon, User } from './types';
+import { Product, Coupon, User, Language } from './types';
 
+// Updated translations without Spanish (es)
+export const TRANSLATIONS: Record<Language, Record<string, string>> = {
+  en: {
+    nav_store: "Store",
+    nav_dashboard: "Dashboard",
+    nav_mobile: "Mobile Top-up",
+    nav_profile: "Profile",
+    wallet_balance: "Total Balance",
+    add_funds: "Add Funds",
+    recent_transactions: "Recent Transactions",
+    hero_title: "Instant Top-Up with",
+    hero_subtitle: "Rahat Pay provides secure purchase of UC, Gems, and credits. Delivered instantly.",
+    buy_btn: "Buy",
+    login: "Login",
+    secure_checkout: "Secure Checkout",
+    order_summary: "Order Summary",
+    pay_wallet: "My Wallet",
+    pay_card: "Credit Card",
+    confirm_pay: "Confirm Payment",
+    verify_email_title: "Verify your email",
+    verify_email_desc: "Please verify your email address to unlock all features.",
+    verify_btn: "Verify Now",
+    switch_workspace: "Switch Workspace",
+    personal_acc: "Personal Account",
+    business_acc: "Reseller Store",
+    verified_status: "Verified",
+    unverified_status: "Unverified",
+    mobile_topup_title: "Local Mobile Recharge",
+    enter_phone: "Phone Number",
+    select_operator: "Select Operator",
+    amount: "Amount",
+    profile_title: "Profile Settings",
+    save_changes: "Save Changes",
+    full_name: "Full Name",
+    email_address: "Email Address",
+    phone_number: "Mobile Number",
+    success_msg: "Operation successful!",
+    operator_mci: "MCI",
+    operator_mtn: "MTN Irancell",
+    operator_rightel: "Rightel"
+  },
+  fa: {
+    nav_store: "فروشگاه",
+    nav_dashboard: "داشبورد",
+    nav_mobile: "شارژ موبایل",
+    nav_profile: "پروفایل",
+    wallet_balance: "موجودی کل",
+    add_funds: "افزایش اعتبار",
+    recent_transactions: "تراکنش‌های اخیر",
+    hero_title: "شارژ فوری با",
+    hero_subtitle: "راحت پی؛ خرید امن یوسی، جم و اعتبار. تحویل آنی.",
+    buy_btn: "خرید",
+    login: "ورود",
+    secure_checkout: "پرداخت امن",
+    order_summary: "خلاصه سفارش",
+    pay_wallet: "کیف پول من",
+    pay_card: "کارت بانکی",
+    confirm_pay: "تایید پرداخت",
+    verify_email_title: "تایید ایمیل",
+    verify_email_desc: "لطفا ایمیل خود را تایید کنید تا به تمام امکانات دسترسی داشته باشید.",
+    verify_btn: "تایید اکنون",
+    switch_workspace: "تغییر فضای کاری",
+    personal_acc: "حساب شخصی",
+    business_acc: "فروشگاه نمایندگی",
+    verified_status: "تایید شده",
+    unverified_status: "تایید نشده",
+    mobile_topup_title: "شارژ سیم‌کارت",
+    enter_phone: "شماره موبایل",
+    select_operator: "انتخاب اپراتور",
+    amount: "مبلغ",
+    profile_title: "تنظیمات پروفایل",
+    save_changes: "ذخیره تغییرات",
+    full_name: "نام کامل",
+    email_address: "آدرس ایمیل",
+    phone_number: "شماره موبایل",
+    success_msg: "عملیات با موفقیت انجام شد",
+    operator_mci: "همراه اول",
+    operator_mtn: "ایرانسل",
+    operator_rightel: "رایتل"
+  }
+};
+
+// Kept as initial state fallback, but API will override this
 export const MOCK_USER: User = {
   id: 'u_12345',
   name: 'Alex Gamer',
   email: 'alex@example.com',
-  balance: 15.50,
-  transactions: [
-    {
-      id: 'tx_99',
-      date: new Date(Date.now() - 86400000).toISOString(),
-      type: 'DEPOSIT',
-      description: 'Wallet Top-up',
-      amount: 50.00,
-      status: 'COMPLETED',
-      paymentMethod: 'STRIPE'
-    },
-    {
-      id: 'tx_98',
-      date: new Date(Date.now() - 172800000).toISOString(),
-      type: 'PURCHASE',
-      description: 'PUBG Mobile - 300 UC',
-      amount: -4.99,
-      status: 'COMPLETED',
-      paymentMethod: 'WALLET'
-    }
-  ]
+  phoneNumber: '',
+  emailVerified: false, 
+  tenants: [
+    { id: 't_personal', name: 'Personal Account', type: 'PERSONAL', balance: 0.00 },
+    { id: 't_business', name: 'Reseller Store', type: 'BUSINESS', balance: 0.00 }
+  ],
+  transactions: []
 };
 
 export const PRODUCTS: Product[] = [
@@ -94,6 +163,6 @@ export const PRODUCTS: Product[] = [
 ];
 
 export const VALID_COUPONS: Coupon[] = [
-  { code: 'APEX10', discountType: 'PERCENTAGE', value: 10 }, // 10% off
-  { code: 'WELCOME5', discountType: 'FIXED', value: 5.00 },   // $5 off
+  { code: 'RAHAT10', discountType: 'PERCENTAGE', value: 10 }, 
+  { code: 'WELCOME5', discountType: 'FIXED', value: 5.00 },   
 ];

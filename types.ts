@@ -1,4 +1,5 @@
 export type ProductType = 'PUBG' | 'IMO';
+export type Language = 'en' | 'fa';
 
 export interface Product {
   id: string;
@@ -18,13 +19,23 @@ export interface Transaction {
   amount: number;
   status: 'COMPLETED' | 'PENDING' | 'FAILED';
   paymentMethod: 'WALLET' | 'STRIPE';
+  tenantId: string; // Linked to specific tenant
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  type: 'PERSONAL' | 'BUSINESS';
+  balance: number;
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  balance: number;
+  phoneNumber?: string;
+  emailVerified: boolean;
+  tenants: Tenant[];
   transactions: Transaction[];
 }
 

@@ -4,11 +4,11 @@ import { useStore } from '../context/StoreContext';
 import { VALID_COUPONS } from '../constants';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldCheck, CreditCard, Wallet, Tag, Gamepad, AlertCircle } from 'lucide-react';
+import { ShieldCheck, CreditCard, Wallet, Tag, Gamepad, AlertCircle, Building2 } from 'lucide-react';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { cartItem, user, processPurchase } = useStore();
+  const { cartItem, user, currentTenant, processPurchase, t } = useStore();
   
   // Form State
   const [gameId, setGameId] = useState('');
@@ -32,7 +32,7 @@ export const Checkout: React.FC = () => {
   const discountAmount = appliedCoupon ? appliedCoupon.discount : 0;
   const total = Math.max(0, subtotal - discountAmount);
   
-  const canUseWallet = user.balance >= total;
+  const canUseWallet = currentTenant.balance >= total;
 
   // Handlers
   const handleApplyCoupon = () => {
@@ -85,12 +85,12 @@ export const Checkout: React.FC = () => {
         </div>
       </div>
       
-      <h1 className="text-3xl font-bold text-center text-white mb-8">Secure Checkout</h1>
+      <h1 className="text-3xl font-bold text-center text-white mb-8">{t('secure_checkout')}</h1>
 
       <div className="grid gap-8">
         {/* Order Summary */}
         <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 border-b border-dark-700 pb-2">Order Summary</h2>
+          <h2 className="text-lg font-semibold text-white mb-4 border-b border-dark-700 pb-2">{t('order_summary')}</h2>
           <div className="flex items-center space-x-4 mb-4">
             <img src={cartItem.image} alt={cartItem.name} className="w-16 h-16 rounded-lg object-cover bg-dark-900" />
             <div>
@@ -142,8 +142,11 @@ export const Checkout: React.FC = () => {
                 />
                 <Wallet className={`w-5 h-5 mt-0.5 mr-3 ${paymentMethod === 'WALLET' ? 'text-brand-400' : 'text-gray-400'}`} />
                 <div className="flex-1">
-                  <span className="block font-medium text-white">My Wallet</span>
-                  <span className="block text-sm text-gray-400">Balance: ${user.balance.toFixed(2)}</span>
+                  <span className="block font-medium text-white">{t('pay_wallet')}</span>
+                  <div className="flex items-center text-sm text-gray-400 mt-1">
+                     <Building2 className="w-3 h-3 mr-1" />
+                     {currentTenant.name}: ${currentTenant.balance.toFixed(2)}
+                  </div>
                   {!canUseWallet && <span className="text-xs text-red-400 mt-1 block">Insufficient funds</span>}
                 </div>
               </label>
@@ -164,7 +167,7 @@ export const Checkout: React.FC = () => {
                 />
                 <CreditCard className={`w-5 h-5 mt-0.5 mr-3 ${paymentMethod === 'STRIPE' ? 'text-brand-400' : 'text-gray-400'}`} />
                 <div className="flex-1">
-                  <span className="block font-medium text-white">Credit Card</span>
+                  <span className="block font-medium text-white">{t('pay_card')}</span>
                   <span className="block text-sm text-gray-400">Secure via Stripe</span>
                 </div>
               </label>
@@ -229,7 +232,7 @@ export const Checkout: React.FC = () => {
             )}
 
             <Button type="submit" className="w-full" isLoading={isProcessing}>
-              {paymentMethod === 'WALLET' ? 'Confirm Payment' : 'Proceed to Stripe'}
+              {paymentMethod === 'WALLET' ? t('confirm_pay') : 'Proceed to Stripe'}
             </Button>
           </div>
         </form>

@@ -9,7 +9,7 @@ import { Search, Filter } from 'lucide-react';
 export const Home: React.FC = () => {
   const [filter, setFilter] = useState<ProductType | 'ALL'>('ALL');
   const navigate = useNavigate();
-  const { setCartItem } = useStore();
+  const { setCartItem, t } = useStore();
 
   const filteredProducts = PRODUCTS.filter(p => filter === 'ALL' || p.type === filter);
 
@@ -25,11 +25,10 @@ export const Home: React.FC = () => {
         <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-brand-900/20 to-transparent pointer-events-none"></div>
         <div className="relative z-10 max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Instant Top-Up for <span className="text-brand-400">Legends</span>
+            {t('hero_title')} <span className="text-brand-400">Legends</span>
           </h1>
           <p className="text-gray-400 text-lg mb-8">
-            Securely purchase UC, Gems, and credits. Delivered instantly to your game account. 
-            Accepting Wallet & Stripe.
+            {t('hero_subtitle')}
           </p>
           <div className="flex flex-wrap gap-4">
             <button 

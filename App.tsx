@@ -5,6 +5,8 @@ import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
 import { Dashboard } from './pages/Dashboard';
 import { Checkout } from './pages/Checkout';
+import { Profile } from './pages/Profile';
+import { MobileTopUp } from './pages/MobileTopUp';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
@@ -17,7 +19,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <footer className="border-t border-dark-800 bg-dark-900 py-8 mt-auto">
         <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
           <p>&copy; {new Date().getFullYear()} Apex TopUp. All rights reserved.</p>
-          <div className="mt-2 space-x-4">
+          <div className="mt-2 space-x-4 rtl:space-x-reverse">
             <span className="hover:text-gray-300 cursor-pointer">Terms</span>
             <span className="hover:text-gray-300 cursor-pointer">Privacy</span>
             <span className="hover:text-gray-300 cursor-pointer">Support</span>
@@ -47,6 +49,8 @@ const App: React.FC = () => {
             <Route path="/" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/mobile-topup" element={<MobileTopUp />} />
           </Routes>
         </Layout>
       </HashRouter>
