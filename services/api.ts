@@ -1,5 +1,5 @@
-import { User, Product, Transaction } from '../types';
-import { MOCK_USER, PRODUCTS } from '../constants';
+import { User, Product, Transaction, BlogPost } from '../types';
+import { MOCK_USER, PRODUCTS, BLOG_POSTS } from '../constants';
 
 /**
  * API CONFIGURATION
@@ -61,6 +61,17 @@ export const api = {
       return PRODUCTS;
     }
     return apiRequest<Product[]>('/products');
+  },
+
+  /**
+   * Fetch Blog Posts
+   */
+  getBlogPosts: async (): Promise<BlogPost[]> => {
+    if (USE_MOCK_DATA) {
+      await new Promise(r => setTimeout(r, 500));
+      return BLOG_POSTS;
+    }
+    return apiRequest<BlogPost[]>('/posts');
   },
 
   /**

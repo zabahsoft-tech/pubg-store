@@ -1,93 +1,106 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { PRODUCTS } from '../constants';
 import { ProductCard } from '../components/ProductCard';
 import { useStore } from '../context/StoreContext';
-import { ProductType } from '../types';
-import { Search, Filter } from 'lucide-react';
+import { BlogPost, Product } from '../types';
+import { Sparkles, Gamepad2, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export const Home: React.FC = () => {
-  const [filter, setFilter] = useState<ProductType | 'ALL'>('ALL');
-  const navigate = useNavigate();
-  const { setCartItem, t } = useStore();
+  const { addToCart, t, blogPosts } = useStore();
+  const [activeSlide, setActiveSlide] = useState(0);
 
-  const filteredProducts = PRODUCTS.filter(p => filter === 'ALL' || p.type === filter);
+  // Filter products for sections
+  const pubgProducts = PRODUCTS.filter(p => p.category === 'PUBG');
+  const imoProducts = PRODUCTS.filter(p => p.category === 'IMO');
+  const physicalProducts = PRODUCTS.filter(p => p.category === 'PHYSICAL');
 
-  const handleBuy = (product: any) => {
-    setCartItem(product);
-    navigate('/checkout');
-  };
+  const featuredBlogs = blogPosts.filter(b => b.isFeatured);
+
+  // Auto-rotate slider
+  useEffect(() => {
+    if (featuredBlogs.length === 0) return;
+    const interval = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % featuredBlogs.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [featuredBlogs.length]);
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Hero Section */}
-      <section className="relative bg-dark-800 rounded-2xl p-8 md:p-12 overflow-hidden border border-dark-700">
-        <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-brand-900/20 to-transparent pointer-events-none"></div>
-        <div className="relative z-10 max-w-2xl">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            {t('hero_title')} <span className="text-brand-400">Legends</span>
-          </h1>
-          <p className="text-gray-400 text-lg mb-8">
-            {t('hero_subtitle')}
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <button 
-              onClick={() => setFilter('PUBG')}
-              className="px-6 py-2 rounded-full bg-dark-700 border border-dark-600 hover:border-brand-500 text-white transition-all"
+    <div className="space-y-16 pb-12">
+      
+      {/* CMS Driven Slider */}
+      {featuredBlogs.length > 0 && (
+        <section className="relative h-[400px] rounded-2xl overflow-hidden shadow-2xl border border-dark-700 group">
+          {featuredBlogs.map((blog, index) => (
+            <div 
+              key={blog.id}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === activeSlide ? 'opacity-100' : 'opacity-0'}`}
             >
-              PUBG Mobile
-            </button>
-            <button 
-              onClick={() => setFilter('IMO')}
-              className="px-6 py-2 rounded-full bg-dark-700 border border-dark-600 hover:border-brand-500 text-white transition-all"
-            >
-              IMO Gems
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Catalog */}
-      <section>
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-white flex items-center">
-            <Filter className="w-5 h-5 mr-2 text-brand-500" />
-            Available Packages
-          </h2>
+              <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/50 to-transparent z-10"></div>
+              <img src={blog.image} alt={blog.title} className="w-full h-full object-cover" />
+              
+              <div className="absolute bottom-0 left-0 p-8 md:p-12 z-20 max-w-2xl rtl:right-0 rtl:left-auto">
+                <span className="inline-block px-3 py-1 bg-brand-500 text-white text-xs font-bold rounded-full mb-3">Featured</span>
+                <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg leading-tight">{blog.title}</h2>
+                <p className="text-gray-300 text-lg mb-6 line-clamp-2">{blog.excerpt}</p>
+                <Link to={`/blog/${blog.id}`} className="flex items-center space-x-2 text-brand-400 font-bold hover:text-brand-300 transition-colors">
+                  <span>{t('hero_read_more')}</span>
+                  <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                </Link>
+              </div>
+            </div>
+          ))}
           
-          <div className="flex bg-dark-800 p-1 rounded-lg border border-dark-700">
-            {(['ALL', 'PUBG', 'IMO'] as const).map((type) => (
+          {/* Slider Dots */}
+          <div className="absolute bottom-6 right-6 z-30 flex space-x-2 rtl:left-6 rtl:right-auto">
+            {featuredBlogs.map((_, idx) => (
               <button
-                key={type}
-                onClick={() => setFilter(type)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  filter === type 
-                    ? 'bg-brand-600 text-white shadow-lg' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {type === 'ALL' ? 'All Games' : type}
-              </button>
+                key={idx}
+                onClick={() => setActiveSlide(idx)}
+                className={`w-2 h-2 rounded-full transition-all ${idx === activeSlide ? 'w-8 bg-brand-500' : 'bg-white/50 hover:bg-white'}`}
+              />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Module 1: Digital Services */}
+      <section className="space-y-8">
+        <div className="flex items-center space-x-3 rtl:space-x-reverse border-b border-dark-700 pb-4">
+          <Gamepad2 className="w-6 h-6 text-brand-500" />
+          <h2 className="text-2xl font-bold text-white">{t('digital_section')}</h2>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredProducts.map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              onSelect={handleBuy} 
-            />
-          ))}
-        </div>
-        
-        {filteredProducts.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            No products found for this category.
+        {/* PUBG Subsection */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-400 pl-2 border-l-4 border-brand-500 rtl:border-l-0 rtl:border-r-4 rtl:pr-2">{t('pubg_section')}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {pubgProducts.map(p => <ProductCard key={p.id} product={p} onSelect={addToCart} />)}
           </div>
-        )}
+        </div>
+
+        {/* IMO Subsection */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-400 pl-2 border-l-4 border-blue-500 rtl:border-l-0 rtl:border-r-4 rtl:pr-2">{t('imo_section')}</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {imoProducts.map(p => <ProductCard key={p.id} product={p} onSelect={addToCart} />)}
+          </div>
+        </div>
       </section>
+
+      {/* Module 2: Physical Products */}
+      <section className="space-y-8">
+        <div className="flex items-center space-x-3 rtl:space-x-reverse border-b border-dark-700 pb-4">
+          <ShoppingBag className="w-6 h-6 text-purple-500" />
+          <h2 className="text-2xl font-bold text-white">{t('physical_section')}</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {physicalProducts.map(p => <ProductCard key={p.id} product={p} onSelect={addToCart} />)}
+        </div>
+      </section>
+
     </div>
   );
 };

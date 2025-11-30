@@ -1,242 +1,252 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { VALID_COUPONS } from '../constants';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldCheck, CreditCard, Wallet, Tag, Gamepad, AlertCircle, Building2 } from 'lucide-react';
+import { ShieldCheck, User, MapPin, Smartphone, Trash2, Tag, Check, X } from 'lucide-react';
+import { VALID_COUPONS } from '../constants';
+import { Coupon } from '../types';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { cartItem, user, currentTenant, processPurchase, t } = useStore();
+  const { cart, removeFromCart, processCheckout, t, convertPrice } = useStore();
   
-  // Form State
-  const [gameId, setGameId] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'WALLET' | 'STRIPE'>('WALLET');
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [couponError, setCouponError] = useState<string | null>(null);
+  // Conditional Form State
+  const [playerId, setPlayerId] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  useEffect(() => {
-    if (!cartItem) {
-      navigate('/');
-    }
-  }, [cartItem, navigate]);
+  // Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  if (!cartItem) return null;
+  // Analyze Cart Content
+  const hasPubg = cart.some(i => i.category === 'PUBG');
+  const hasImo = cart.some(i => i.category === 'IMO');
+  const hasPhysical = cart.some(i => i.category === 'PHYSICAL');
 
   // Calculations
-  const subtotal = cartItem.price;
-  const discountAmount = appliedCoupon ? appliedCoupon.discount : 0;
-  const total = Math.max(0, subtotal - discountAmount);
+  const totalUSD = cart.reduce((sum, item) => sum + item.price, 0);
   
-  const canUseWallet = currentTenant.balance >= total;
-
-  // Handlers
-  const handleApplyCoupon = () => {
-    setCouponError(null);
-    const coupon = VALID_COUPONS.find(c => c.code === couponCode.toUpperCase());
-    
-    if (coupon) {
-      let discount = 0;
-      if (coupon.discountType === 'FIXED') {
-        discount = coupon.value;
-      } else {
-        discount = (subtotal * coupon.value) / 100;
-      }
-      setAppliedCoupon({ code: coupon.code, discount });
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === 'PERCENTAGE') {
+      discountAmount = totalUSD * (appliedCoupon.value / 100);
     } else {
-      setCouponError('Invalid coupon code');
-      setAppliedCoupon(null);
+      discountAmount = appliedCoupon.value;
     }
+  }
+
+  const finalTotal = Math.max(0, totalUSD - discountAmount);
+
+  const handleApplyCoupon = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setCouponMessage(null);
+    
+    if (!couponCode.trim()) return;
+
+    const found = VALID_COUPONS.find(c => c.code === couponCode.trim());
+    if (found) {
+      setAppliedCoupon(found);
+      setCouponMessage({ 
+        type: 'success', 
+        text: found.discountType === 'PERCENTAGE' ? `${found.value}% Discount Applied` : `$${found.value} Discount Applied` 
+      });
+    } else {
+      setAppliedCoupon(null);
+      setCouponMessage({ type: 'error', text: 'Invalid coupon code' });
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponMessage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gameId) {
-      setError('Please enter your Game ID');
-      return;
-    }
-    
-    setError(null);
     setIsProcessing(true);
+    
+    // Pass data to store to handle the splitting logic
+    await processCheckout(
+      { playerId: hasPubg ? playerId : undefined, phone: hasImo ? phone : undefined },
+      { address: hasPhysical ? address : undefined }
+    );
 
-    try {
-      await processPurchase(
-        total, 
-        `${cartItem.name} - ${cartItem.amount} (ID: ${gameId})`, 
-        paymentMethod
-      );
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Transaction failed');
-    } finally {
-      setIsProcessing(false);
-    }
+    setIsProcessing(false);
+    navigate('/dashboard');
   };
 
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center justify-center mb-8">
-        <div className="bg-brand-500/10 p-3 rounded-full">
-          <ShieldCheck className="w-8 h-8 text-brand-500" />
-        </div>
+  if (cart.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-2xl text-gray-400 font-bold mb-4">{t('cart_empty')}</h2>
+        <Button onClick={() => navigate('/')}>Go Shopping</Button>
       </div>
-      
-      <h1 className="text-3xl font-bold text-center text-white mb-8">{t('secure_checkout')}</h1>
+    );
+  }
 
-      <div className="grid gap-8">
-        {/* Order Summary */}
-        <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 border-b border-dark-700 pb-2">{t('order_summary')}</h2>
-          <div className="flex items-center space-x-4 mb-4">
-            <img src={cartItem.image} alt={cartItem.name} className="w-16 h-16 rounded-lg object-cover bg-dark-900" />
-            <div>
-              <p className="font-bold text-white">{cartItem.name}</p>
-              <p className="text-brand-400">{cartItem.amount}</p>
-            </div>
-            <div className="ml-auto text-right">
-              <p className="font-bold text-white">${cartItem.price.toFixed(2)}</p>
-            </div>
+  return (
+    <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+      
+      {/* Left Column: Cart Items & Inputs */}
+      <div className="md:col-span-2 space-y-8">
+        <h1 className="text-3xl font-bold text-white mb-6">{t('checkout')}</h1>
+
+        {/* Cart Review */}
+        <div className="bg-dark-800 rounded-xl p-6 border border-dark-700">
+          <h2 className="text-lg font-semibold text-white mb-4">Cart Items ({cart.length})</h2>
+          <div className="space-y-4">
+            {cart.map((item) => (
+              <div key={item.cartId} className="flex items-center justify-between bg-dark-900/50 p-3 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <img src={item.image} alt={item.name} className="w-10 h-10 rounded object-cover" />
+                  <div>
+                    <div className="text-sm font-bold text-white">{item.name}</div>
+                    <div className="text-xs text-gray-400">{item.amount || item.description}</div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className="text-white font-mono">{convertPrice(item.price)}</span>
+                  <button onClick={() => removeFromCart(item.cartId)} className="text-red-500 hover:text-red-400">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Dynamic Forms based on Category */}
+        <form id="checkout-form" onSubmit={handleSubmit} className="space-y-6">
           
-          {/* Step 1: Identification */}
-          <div className="space-y-4">
-            <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider">1. Account Details</h3>
-            <Input
-              label={`Enter your ${cartItem.type} ID`}
-              placeholder="e.g. 512345678"
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              icon={<Gamepad className="w-5 h-5" />}
-              required
-            />
-            <p className="text-xs text-gray-500">
-              Please double check your ID. Digital goods are non-refundable.
-            </p>
-          </div>
-
-          {/* Step 2: Payment Method */}
-          <div className="space-y-4">
-            <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider">2. Payment Method</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Wallet Option */}
-              <label className={`relative flex items-start p-4 border rounded-xl cursor-pointer transition-all ${
-                paymentMethod === 'WALLET' 
-                  ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' 
-                  : 'border-dark-700 bg-dark-800 hover:border-dark-600'
-              } ${!canUseWallet ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <input 
-                  type="radio" 
-                  name="payment" 
-                  value="WALLET"
-                  checked={paymentMethod === 'WALLET'}
-                  onChange={() => canUseWallet && setPaymentMethod('WALLET')}
-                  disabled={!canUseWallet}
-                  className="sr-only"
-                />
-                <Wallet className={`w-5 h-5 mt-0.5 mr-3 ${paymentMethod === 'WALLET' ? 'text-brand-400' : 'text-gray-400'}`} />
-                <div className="flex-1">
-                  <span className="block font-medium text-white">{t('pay_wallet')}</span>
-                  <div className="flex items-center text-sm text-gray-400 mt-1">
-                     <Building2 className="w-3 h-3 mr-1" />
-                     {currentTenant.name}: ${currentTenant.balance.toFixed(2)}
-                  </div>
-                  {!canUseWallet && <span className="text-xs text-red-400 mt-1 block">Insufficient funds</span>}
-                </div>
-              </label>
-
-              {/* Stripe Option */}
-              <label className={`relative flex items-start p-4 border rounded-xl cursor-pointer transition-all ${
-                paymentMethod === 'STRIPE' 
-                  ? 'border-brand-500 bg-brand-500/10 ring-1 ring-brand-500' 
-                  : 'border-dark-700 bg-dark-800 hover:border-dark-600'
-              }`}>
-                <input 
-                  type="radio" 
-                  name="payment" 
-                  value="STRIPE"
-                  checked={paymentMethod === 'STRIPE'}
-                  onChange={() => setPaymentMethod('STRIPE')}
-                  className="sr-only"
-                />
-                <CreditCard className={`w-5 h-5 mt-0.5 mr-3 ${paymentMethod === 'STRIPE' ? 'text-brand-400' : 'text-gray-400'}`} />
-                <div className="flex-1">
-                  <span className="block font-medium text-white">{t('pay_card')}</span>
-                  <span className="block text-sm text-gray-400">Secure via Stripe</span>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Step 3: Coupon */}
-          <div className="space-y-4">
-             <h3 className="text-gray-400 text-sm font-semibold uppercase tracking-wider">3. Discounts</h3>
-             <div className="flex space-x-2">
-                <div className="flex-1">
-                    <Input 
-                      placeholder="Enter code (e.g. APEX10)" 
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      icon={<Tag className="w-4 h-4" />}
-                      disabled={!!appliedCoupon}
-                    />
-                </div>
-                {appliedCoupon ? (
-                  <Button type="button" variant="secondary" onClick={() => { setAppliedCoupon(null); setCouponCode(''); }}>
-                    Remove
-                  </Button>
-                ) : (
-                  <Button type="button" variant="secondary" onClick={handleApplyCoupon}>
-                    Apply
-                  </Button>
+          {(hasPubg || hasImo) && (
+            <div className="bg-dark-800 rounded-xl p-6 border border-dark-700 animate-in fade-in">
+              <h3 className="text-brand-400 font-bold mb-4 flex items-center">
+                 <Smartphone className="w-5 h-5 mr-2" /> {t('checkout_digital_info')}
+              </h3>
+              <div className="space-y-4">
+                {hasPubg && (
+                  <Input 
+                    label={t('label_player_id')} 
+                    placeholder="Enter Player ID" 
+                    value={playerId}
+                    onChange={e => setPlayerId(e.target.value)}
+                    required
+                    icon={<User className="w-4 h-4" />}
+                  />
                 )}
-             </div>
-             {couponError && <p className="text-red-500 text-sm">{couponError}</p>}
-             {appliedCoupon && (
-               <p className="text-green-500 text-sm flex items-center">
-                 <ShieldCheck className="w-4 h-4 mr-1" /> Code {appliedCoupon.code} applied!
-               </p>
-             )}
-          </div>
-
-          {/* Totals & Submit */}
-          <div className="bg-dark-900 rounded-xl p-6 border border-dark-800">
-            <div className="space-y-2 mb-4 text-sm">
-              <div className="flex justify-between text-gray-400">
-                <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
-              </div>
-              {appliedCoupon && (
-                <div className="flex justify-between text-green-500">
-                  <span>Discount</span>
-                  <span>-${discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-white font-bold text-lg pt-2 border-t border-dark-700">
-                <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                {hasImo && (
+                  <Input 
+                    label={t('label_phone')} 
+                    placeholder="Enter Phone Number" 
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    required
+                    icon={<Smartphone className="w-4 h-4" />}
+                  />
+                )}
               </div>
             </div>
+          )}
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 mb-4 flex items-center text-red-500 text-sm">
-                <AlertCircle className="w-4 h-4 mr-2" />
-                {error}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" isLoading={isProcessing}>
-              {paymentMethod === 'WALLET' ? t('confirm_pay') : 'Proceed to Stripe'}
-            </Button>
-          </div>
+          {hasPhysical && (
+            <div className="bg-dark-800 rounded-xl p-6 border border-dark-700 animate-in fade-in">
+              <h3 className="text-purple-400 font-bold mb-4 flex items-center">
+                 <MapPin className="w-5 h-5 mr-2" /> {t('checkout_physical_info')}
+              </h3>
+              <Input 
+                label={t('label_address')} 
+                placeholder="Street, City, Zip Code" 
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                required
+              />
+            </div>
+          )}
         </form>
       </div>
+
+      {/* Right Column: Summary */}
+      <div className="md:col-span-1">
+        <div className="bg-dark-800 rounded-xl p-6 border border-dark-700 sticky top-24">
+          <h2 className="text-xl font-bold text-white mb-6">{t('order_summary')}</h2>
+          
+          {/* Coupon Input */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-400 mb-2">Coupon Code</label>
+            <div className="flex space-x-2 rtl:space-x-reverse">
+               <div className="relative flex-grow">
+                 <input 
+                    type="text" 
+                    placeholder="Enter code" 
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    disabled={!!appliedCoupon}
+                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none disabled:opacity-50"
+                 />
+                 <Tag className="w-4 h-4 text-gray-500 absolute top-2.5 right-3 rtl:left-3 rtl:right-auto" />
+               </div>
+               {appliedCoupon ? (
+                 <button onClick={removeCoupon} className="bg-red-500/10 text-red-500 p-2 rounded-lg hover:bg-red-500/20 border border-red-500/20 transition-colors">
+                    <X className="w-5 h-5" />
+                 </button>
+               ) : (
+                 <button onClick={handleApplyCoupon} className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors">
+                    Apply
+                 </button>
+               )}
+            </div>
+            {couponMessage && (
+               <div className={`mt-2 text-xs flex items-center ${couponMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {couponMessage.type === 'success' ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                  {couponMessage.text}
+               </div>
+            )}
+          </div>
+
+          <div className="space-y-2 text-sm mb-6 border-t border-dark-700 pt-4">
+            <div className="flex justify-between text-gray-400">
+              <span>Subtotal</span>
+              <span>{convertPrice(totalUSD)}</span>
+            </div>
+            
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-brand-400 animate-in fade-in">
+                <span>Discount</span>
+                <span>-{convertPrice(discountAmount)}</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between text-gray-400">
+              <span>Processing Fee</span>
+              <span>{convertPrice(0)}</span>
+            </div>
+            
+            <div className="border-t border-dark-700 my-2 pt-2 flex justify-between text-white font-bold text-lg">
+              <span>{t('total')}</span>
+              <span>{convertPrice(finalTotal)}</span>
+            </div>
+          </div>
+
+          <Button 
+            form="checkout-form"
+            type="submit" 
+            className="w-full py-4 text-lg shadow-brand-500/20" 
+            isLoading={isProcessing}
+          >
+            {t('btn_place_order')}
+          </Button>
+          
+          <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
+            <ShieldCheck className="w-3 h-3 mr-1" /> Secure Encrypted Payment
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };

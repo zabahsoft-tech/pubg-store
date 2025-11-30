@@ -2,136 +2,265 @@ import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Smartphone, Signal, CreditCard, Wallet, CheckCircle } from 'lucide-react';
+import { Smartphone, Signal, CheckCircle, Zap, Tag, Check, X, CreditCard, Hash } from 'lucide-react';
+import { OPERATOR_PREFIXES, VALID_COUPONS } from '../constants';
+import { Coupon } from '../types';
 
 export const MobileTopUp: React.FC = () => {
-  const { user, currentTenant, processPurchase, t, language } = useStore();
-  const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber || '');
-  const [operator, setOperator] = useState('');
+  const { t, convertPrice } = useStore();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [detectedOperator, setDetectedOperator] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const operators = [
-    { id: 'mci', name: t('operator_mci'), color: 'bg-cyan-500' },
-    { id: 'mtn', name: t('operator_mtn'), color: 'bg-yellow-500' },
-    { id: 'rightel', name: t('operator_rightel'), color: 'bg-purple-500' },
-  ];
+  // Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  const handleRecharge = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneNumber || !amount || !operator) return;
-
-    setIsLoading(true);
-    setSuccess(false);
+  // Smart Operator Detection Logic (Afghan Numbers 07x)
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, ''); // Numeric only
+    setPhoneNumber(val);
     
-    try {
-      // Simulate purchase
-      await processPurchase(
-        Number(amount), 
-        `${t('mobile_topup_title')} - ${operator} (${phoneNumber})`, 
-        'WALLET'
-      );
-      setSuccess(true);
-      setAmount('');
-    } catch (error) {
-      console.error(error);
-      alert(error instanceof Error ? error.message : "Failed");
-    } finally {
-      setIsLoading(false);
+    // Check first 3 digits for Afghan Prefixes (e.g. 079)
+    if (val.length >= 3) {
+      const prefix = val.substring(0, 3);
+      setDetectedOperator(OPERATOR_PREFIXES[prefix] || null);
+    } else {
+      setDetectedOperator(null);
     }
   };
 
-  return (
-    <div className="max-w-xl mx-auto">
-       <div className="flex items-center justify-center mb-8">
-        <div className="bg-brand-500/10 p-4 rounded-full">
-          <Smartphone className="w-10 h-10 text-brand-500" />
-        </div>
-      </div>
+  const handleApplyCoupon = () => {
+    setCouponMessage(null);
+    if (!couponCode.trim()) return;
 
-      <h1 className="text-3xl font-bold text-center text-white mb-8">{t('mobile_topup_title')}</h1>
+    const found = VALID_COUPONS.find(c => c.code === couponCode.trim());
+    if (found) {
+      setAppliedCoupon(found);
+      setCouponMessage({ 
+        type: 'success', 
+        text: found.discountType === 'PERCENTAGE' ? `${found.value}% Discount Applied` : `$${found.value} Discount Applied` 
+      });
+    } else {
+      setAppliedCoupon(null);
+      setCouponMessage({ type: 'error', text: 'Invalid coupon code' });
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponMessage(null);
+  };
+
+  const handleRecharge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneNumber || !amount || !detectedOperator) return;
+
+    setIsLoading(true);
+    // Simulate top up
+    setTimeout(() => {
+        setSuccess(true);
+        setIsLoading(false);
+    }, 1500);
+  };
+
+  // Calculate Finals
+  const baseAmount = parseFloat(amount) || 0;
+  let finalAmount = baseAmount;
+  let discountAmount = 0;
+
+  if (appliedCoupon && baseAmount > 0) {
+    if (appliedCoupon.discountType === 'PERCENTAGE') {
+      discountAmount = baseAmount * (appliedCoupon.value / 100);
+    } else {
+      discountAmount = appliedCoupon.value;
+    }
+    finalAmount = Math.max(0, baseAmount - discountAmount);
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+       {/* Header Section */}
+       <div className="text-center mb-12 space-y-4">
+          <div className="inline-flex items-center justify-center p-4 bg-gradient-to-br from-brand-600 to-brand-800 rounded-2xl shadow-2xl shadow-brand-500/20 mb-4">
+            <Smartphone className="w-12 h-12 text-white" />
+          </div>
+          <h1 className="text-4xl font-extrabold text-white tracking-tight">{t('nav_mobile')}</h1>
+          <p className="text-gray-400 max-w-lg mx-auto">Instantly recharge mobile credit for any major operator. Secure, fast, and reliable.</p>
+       </div>
 
       {success ? (
-        <div className="bg-green-500/10 border border-green-500/50 rounded-xl p-8 text-center animate-in zoom-in-95">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">{t('success_msg')}</h2>
-          <p className="text-gray-400 mb-6">Your top-up for {phoneNumber} has been processed.</p>
-          <Button onClick={() => setSuccess(false)} variant="outline">
-            Top Up Another
+        <div className="max-w-md mx-auto bg-dark-800 border border-green-500/30 rounded-2xl p-8 text-center animate-in zoom-in-95 shadow-2xl shadow-green-900/20">
+          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+             <CheckCircle className="w-10 h-10 text-green-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Top-up Successful!</h2>
+          <div className="bg-dark-900/50 rounded-lg p-4 mb-6 border border-dark-700">
+             <div className="flex justify-between text-sm mb-2">
+               <span className="text-gray-400">Number</span>
+               <span className="text-white font-mono">{phoneNumber}</span>
+             </div>
+             <div className="flex justify-between text-sm mb-2">
+               <span className="text-gray-400">Operator</span>
+               <span className="text-white">{detectedOperator}</span>
+             </div>
+             <div className="border-t border-dark-700 my-2 pt-2 flex justify-between font-bold">
+               <span className="text-gray-400">Amount</span>
+               <span className="text-brand-400">{convertPrice(finalAmount)}</span>
+             </div>
+          </div>
+          <Button onClick={() => { setSuccess(false); setPhoneNumber(''); setAmount(''); setAppliedCoupon(null); setCouponCode(''); }} variant="primary" className="w-full">
+            Make Another Top-up
           </Button>
         </div>
       ) : (
-        <form onSubmit={handleRecharge} className="bg-dark-800 border border-dark-700 rounded-xl p-6 space-y-6">
-          
-          <Input 
-            label={t('enter_phone')}
-            placeholder="0912 345 6789"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            icon={<Smartphone className="w-5 h-5" />}
-            required
-            dir="ltr" // Phone numbers are usually LTR even in RTL layouts
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           {/* Left Column: Input Form */}
+           <div className="lg:col-span-2 space-y-6">
+              <form onSubmit={handleRecharge} className="bg-dark-800 border border-dark-700 rounded-2xl p-6 md:p-8 shadow-xl space-y-8 relative overflow-hidden">
+                {/* Decorative background glow */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-300">{t('select_operator')}</label>
-            <div className="grid grid-cols-3 gap-3">
-              {operators.map((op) => (
-                <button
-                  key={op.id}
-                  type="button"
-                  onClick={() => setOperator(op.id)}
-                  className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
-                    operator === op.id 
-                      ? 'border-brand-500 bg-brand-500/10 text-white' 
-                      : 'border-dark-700 bg-dark-900 text-gray-400 hover:border-brand-500/50'
-                  }`}
-                >
-                  <Signal className={`w-6 h-6 mb-2 ${operator === op.id ? 'text-brand-400' : 'text-gray-500'}`} />
-                  <span className="text-xs font-medium text-center">{op.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+                {/* Phone Input Section */}
+                <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+                     <label className="text-sm font-bold text-gray-300 uppercase tracking-wider">Phone Number</label>
+                     {detectedOperator && (
+                        <span className="flex items-center text-brand-400 font-bold text-sm bg-brand-900/30 px-3 py-1 rounded-full border border-brand-500/20 animate-in fade-in">
+                            <Signal className="w-3 h-3 mr-2" /> {detectedOperator}
+                        </span>
+                     )}
+                   </div>
+                   
+                   <div className="relative group">
+                     <Input 
+                        placeholder="079 123 4567"
+                        value={phoneNumber}
+                        onChange={handlePhoneChange}
+                        icon={<Smartphone className="w-5 h-5 group-focus-within:text-brand-400 transition-colors" />}
+                        required
+                        className="text-lg font-mono tracking-wider"
+                        maxLength={10}
+                      />
+                   </div>
+                </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-300">{t('amount')}</label>
-            <div className="grid grid-cols-3 gap-3">
-              {[2, 5, 10, 20, 50, 100].map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setAmount(val.toString())}
-                  className={`py-2 rounded-lg border text-sm font-medium transition-all ${
-                    amount === val.toString()
-                      ? 'border-brand-500 bg-brand-500 text-white' 
-                      : 'border-dark-700 bg-dark-900 text-gray-300 hover:border-gray-500'
-                  }`}
-                >
-                  ${val}
-                </button>
-              ))}
-            </div>
-            <Input 
-              placeholder="Custom Amount" 
-              type="number" 
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-2"
-            />
-          </div>
+                {/* Amount Section */}
+                <div className={`transition-all duration-500 ${detectedOperator ? 'opacity-100 translate-y-0' : 'opacity-40 translate-y-4 grayscale pointer-events-none'}`}>
+                   <label className="block text-sm font-bold text-gray-300 uppercase tracking-wider mb-4">{t('amount')}</label>
+                   
+                   {/* Preset Buttons */}
+                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                     {[1, 2, 5, 10, 20, 50].map((val) => (
+                       <button
+                         key={val}
+                         type="button"
+                         onClick={() => setAmount(val.toString())}
+                         className={`py-4 rounded-xl border-2 font-bold text-lg transition-all duration-200 relative overflow-hidden ${
+                           amount === val.toString()
+                             ? 'border-brand-500 bg-brand-500/10 text-white shadow-lg shadow-brand-500/10 transform scale-[1.02]' 
+                             : 'border-dark-700 bg-dark-900/50 text-gray-400 hover:border-dark-500 hover:bg-dark-800'
+                         }`}
+                       >
+                         {convertPrice(val)}
+                         {amount === val.toString() && <div className="absolute inset-0 bg-brand-500/5"></div>}
+                       </button>
+                     ))}
+                   </div>
 
-          <div className="pt-4 border-t border-dark-700">
-             <div className="flex justify-between items-center mb-4 text-sm">
-                <span className="text-gray-400">{t('pay_wallet')}</span>
-                <span className="text-white font-bold">${currentTenant.balance.toFixed(2)}</span>
-             </div>
-             <Button type="submit" className="w-full" disabled={!operator || !amount || !phoneNumber} isLoading={isLoading}>
-                {t('confirm_pay')}
-             </Button>
-          </div>
-        </form>
+                   {/* Custom Amount Input */}
+                   <div className="relative">
+                      <Input 
+                        placeholder="Enter custom amount..."
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        icon={<Hash className="w-5 h-5" />}
+                        className="bg-dark-900/50"
+                      />
+                   </div>
+                </div>
+              </form>
+           </div>
+
+           {/* Right Column: Order Summary & Coupon */}
+           <div className="lg:col-span-1 space-y-6">
+              <div className="bg-dark-800 border border-dark-700 rounded-2xl p-6 shadow-xl sticky top-24">
+                 <h3 className="text-xl font-bold text-white mb-6 flex items-center">
+                    <CreditCard className="w-5 h-5 mr-2 text-brand-400" /> Summary
+                 </h3>
+                 
+                 {/* Coupon Section */}
+                 <div className="mb-6 pb-6 border-b border-dark-700">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Coupon Code</label>
+                    <div className="flex space-x-2">
+                       <div className="relative flex-grow">
+                         <input 
+                            type="text" 
+                            placeholder="Promo Code" 
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value)}
+                            disabled={!!appliedCoupon}
+                            className="w-full bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none disabled:opacity-50 font-mono uppercase"
+                         />
+                         <Tag className="w-4 h-4 text-gray-500 absolute top-2.5 right-3" />
+                       </div>
+                       {appliedCoupon ? (
+                         <button onClick={removeCoupon} className="bg-red-500/10 text-red-500 p-2 rounded-lg hover:bg-red-500/20 border border-red-500/20 transition-colors">
+                            <X className="w-5 h-5" />
+                         </button>
+                       ) : (
+                         <button onClick={handleApplyCoupon} className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors shadow-lg shadow-brand-900/20">
+                            Apply
+                         </button>
+                       )}
+                    </div>
+                    {couponMessage && (
+                       <div className={`mt-2 text-xs flex items-center font-medium animate-in fade-in ${couponMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                          {couponMessage.type === 'success' ? <Check className="w-3 h-3 mr-1" /> : <X className="w-3 h-3 mr-1" />}
+                          {couponMessage.text}
+                       </div>
+                    )}
+                 </div>
+
+                 {/* Totals */}
+                 <div className="space-y-3 mb-8">
+                    <div className="flex justify-between text-gray-400 text-sm">
+                       <span>Top-up Amount</span>
+                       <span>{convertPrice(baseAmount)}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                       <div className="flex justify-between text-brand-400 text-sm font-medium">
+                          <span>Discount</span>
+                          <span>-{convertPrice(discountAmount)}</span>
+                       </div>
+                    )}
+                    <div className="border-t border-dark-700 pt-3 flex justify-between text-white font-bold text-xl">
+                       <span>Total</span>
+                       <span>{convertPrice(finalAmount)}</span>
+                    </div>
+                 </div>
+
+                 <Button 
+                   onClick={handleRecharge} 
+                   className="w-full py-4 text-lg shadow-brand-500/20" 
+                   disabled={!detectedOperator || !amount || parseFloat(amount) <= 0} 
+                   isLoading={isLoading}
+                 >
+                   <Zap className="w-5 h-5 mr-2 fill-current" />
+                   {t('btn_place_order')}
+                 </Button>
+                 
+                 <p className="text-center text-xs text-gray-500 mt-4">
+                    Secure encrypted transaction.
+                 </p>
+              </div>
+           </div>
+        </div>
       )}
     </div>
   );
