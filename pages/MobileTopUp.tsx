@@ -98,23 +98,23 @@ export const MobileTopUp: React.FC = () => {
           <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
              <CheckCircle className="w-10 h-10 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Top-up Successful!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">{t('topup_success')}</h2>
           <div className="bg-dark-900/50 rounded-lg p-4 mb-6 border border-dark-700">
              <div className="flex justify-between text-sm mb-2">
-               <span className="text-gray-400">Number</span>
+               <span className="text-gray-400">{t('number_label')}</span>
                <span className="text-white font-mono">{phoneNumber}</span>
              </div>
              <div className="flex justify-between text-sm mb-2">
-               <span className="text-gray-400">Operator</span>
+               <span className="text-gray-400">{t('operator')}</span>
                <span className="text-white">{detectedOperator}</span>
              </div>
              <div className="border-t border-dark-700 my-2 pt-2 flex justify-between font-bold">
-               <span className="text-gray-400">Amount</span>
+               <span className="text-gray-400">{t('amount')}</span>
                <span className="text-brand-400">{convertPrice(finalAmount)}</span>
              </div>
           </div>
           <Button onClick={() => { setSuccess(false); setPhoneNumber(''); setAmount(''); setAppliedCoupon(null); setCouponCode(''); }} variant="primary" className="w-full">
-            Make Another Top-up
+            {t('make_another_topup')}
           </Button>
         </div>
       ) : (
@@ -128,7 +128,7 @@ export const MobileTopUp: React.FC = () => {
                 {/* Phone Input Section */}
                 <div className="space-y-4">
                    <div className="flex items-center justify-between">
-                     <label className="text-sm font-bold text-gray-300 uppercase tracking-wider">Phone Number</label>
+                     <label className="text-sm font-bold text-gray-300 uppercase tracking-wider">{t('phone_number')}</label>
                      {detectedOperator && (
                         <span className="flex items-center text-brand-400 font-bold text-sm bg-brand-900/30 px-3 py-1 rounded-full border border-brand-500/20 animate-in fade-in">
                             <Signal className="w-3 h-3 mr-2" /> {detectedOperator}
@@ -175,7 +175,7 @@ export const MobileTopUp: React.FC = () => {
                    {/* Custom Amount Input */}
                    <div className="relative">
                       <Input 
-                        placeholder="Enter custom amount..."
+                        placeholder={t('enter_custom_amount')}
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
@@ -191,23 +191,23 @@ export const MobileTopUp: React.FC = () => {
            <div className="lg:col-span-1 space-y-6">
               <div className="bg-dark-800 border border-dark-700 rounded-2xl p-6 shadow-xl sticky top-24">
                  <h3 className="text-xl font-bold text-white mb-6 flex items-center">
-                    <CreditCard className="w-5 h-5 mr-2 text-brand-400" /> Summary
+                    <CreditCard className="w-5 h-5 mr-2 text-brand-400" /> {t('summary')}
                  </h3>
                  
                  {/* Coupon Section */}
                  <div className="mb-6 pb-6 border-b border-dark-700">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Coupon Code</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{t('coupon_code')}</label>
                     <div className="flex space-x-2">
                        <div className="relative flex-grow">
                          <input 
                             type="text" 
-                            placeholder="Promo Code" 
+                            placeholder={t('promo_code_placeholder')}
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value)}
                             disabled={!!appliedCoupon}
                             className="w-full bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none disabled:opacity-50 font-mono uppercase"
                          />
-                         <Tag className="w-4 h-4 text-gray-500 absolute top-2.5 right-3" />
+                         <Tag className="w-4 h-4 text-gray-500 absolute top-2.5 right-3 rtl:left-3 rtl:right-auto" />
                        </div>
                        {appliedCoupon ? (
                          <button onClick={removeCoupon} className="bg-red-500/10 text-red-500 p-2 rounded-lg hover:bg-red-500/20 border border-red-500/20 transition-colors">
@@ -215,7 +215,7 @@ export const MobileTopUp: React.FC = () => {
                          </button>
                        ) : (
                          <button onClick={handleApplyCoupon} className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors shadow-lg shadow-brand-900/20">
-                            Apply
+                            {t('apply')}
                          </button>
                        )}
                     </div>
@@ -230,17 +230,17 @@ export const MobileTopUp: React.FC = () => {
                  {/* Totals */}
                  <div className="space-y-3 mb-8">
                     <div className="flex justify-between text-gray-400 text-sm">
-                       <span>Top-up Amount</span>
+                       <span>{t('topup_amount')}</span>
                        <span>{convertPrice(baseAmount)}</span>
                     </div>
                     {discountAmount > 0 && (
                        <div className="flex justify-between text-brand-400 text-sm font-medium">
-                          <span>Discount</span>
+                          <span>{t('discount')}</span>
                           <span>-{convertPrice(discountAmount)}</span>
                        </div>
                     )}
                     <div className="border-t border-dark-700 pt-3 flex justify-between text-white font-bold text-xl">
-                       <span>Total</span>
+                       <span>{t('total')}</span>
                        <span>{convertPrice(finalAmount)}</span>
                     </div>
                  </div>
@@ -256,7 +256,7 @@ export const MobileTopUp: React.FC = () => {
                  </Button>
                  
                  <p className="text-center text-xs text-gray-500 mt-4">
-                    Secure encrypted transaction.
+                    {t('secure_transaction')}
                  </p>
               </div>
            </div>

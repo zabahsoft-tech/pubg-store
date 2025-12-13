@@ -89,7 +89,7 @@ export const Profile: React.FC = () => {
       </div>
 
       <div className="bg-dark-800 border border-dark-700 rounded-xl p-6">
-         <h2 className="text-lg font-semibold text-white mb-4">{t('order_summary').replace('Order Summary', 'Account Status')}</h2>
+         <h2 className="text-lg font-semibold text-white mb-4">{t('account_status')}</h2>
          <div className="flex items-center space-x-2 rtl:space-x-reverse">
             <span className="text-gray-400">{t('email_address')}:</span>
             <span className={`px-2 py-0.5 rounded text-xs font-bold ${user.emailVerified ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>

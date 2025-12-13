@@ -4,16 +4,16 @@ import { Link } from 'react-router-dom';
 import { Calendar, ArrowRight } from 'lucide-react';
 
 export const BlogList: React.FC = () => {
-    const { blogPosts } = useStore();
+    const { blogPosts, t } = useStore();
     return (
         <div className="space-y-8 animate-in fade-in">
              <div className="text-center space-y-4">
-                <h1 className="text-4xl font-bold text-white">Latest News</h1>
-                <p className="text-gray-400">Updates from the Rahat Pay team</p>
+                <h1 className="text-4xl font-bold text-white">{t('latest_news')}</h1>
+                <p className="text-gray-400">{t('news_subtitle')}</p>
              </div>
              
              {blogPosts.length === 0 ? (
-                 <div className="text-center py-20 text-gray-500">Loading articles...</div>
+                 <div className="text-center py-20 text-gray-500">{t('loading')}</div>
              ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {blogPosts.map(post => (
@@ -29,7 +29,7 @@ export const BlogList: React.FC = () => {
                                 <h2 className="text-xl font-bold text-white group-hover:text-brand-400 transition-colors line-clamp-2">{post.title}</h2>
                                 <p className="text-gray-400 text-sm line-clamp-3 leading-relaxed">{post.excerpt}</p>
                                 <div className="flex items-center text-brand-400 text-sm font-bold pt-2">
-                                    Read Article <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                                    {t('hero_read_more')} <ArrowRight className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
                                 </div>
                             </div>
                         </Link>

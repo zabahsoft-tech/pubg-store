@@ -13,8 +13,8 @@ export const BlogPostPage: React.FC = () => {
   if (!post) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-white mb-4">Post not found</h2>
-        <button onClick={() => navigate('/')} className="text-brand-400 hover:text-brand-300">Back to Home</button>
+        <h2 className="text-2xl font-bold text-white mb-4">{t('post_not_found')}</h2>
+        <button onClick={() => navigate('/')} className="text-brand-400 hover:text-brand-300">{t('back_home')}</button>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export const BlogPostPage: React.FC = () => {
         <div className="absolute bottom-0 left-0 p-8 w-full rtl:right-0 rtl:left-auto">
           <div className="flex items-center space-x-4 mb-3 text-gray-300 text-sm">
             <span className="flex items-center"><Calendar className="w-4 h-4 mr-1" /> {post.date}</span>
-            {post.isFeatured && <span className="bg-brand-500 text-white px-2 py-0.5 rounded text-xs font-bold">Featured</span>}
+            {post.isFeatured && <span className="bg-brand-500 text-white px-2 py-0.5 rounded text-xs font-bold">{t('featured_tag')}</span>}
           </div>
           <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight">{post.title}</h1>
         </div>
@@ -50,9 +50,9 @@ export const BlogPostPage: React.FC = () => {
          </div>
          
          <div className="mt-12 pt-6 border-t border-dark-700 flex justify-between items-center">
-            <span className="text-gray-500 text-sm">Written by Admin</span>
+            <span className="text-gray-500 text-sm">{t('written_by')} Admin</span>
             <button className="flex items-center text-gray-400 hover:text-brand-400 transition-colors">
-              <Share2 className="w-4 h-4 mr-2" /> Share
+              <Share2 className="w-4 h-4 mr-2" /> {t('share')}
             </button>
          </div>
       </div>

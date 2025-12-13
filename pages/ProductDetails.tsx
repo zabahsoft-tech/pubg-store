@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { PRODUCTS } from '../constants';
 import { Product } from '../types';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft, Check, ShoppingCart, Star, ShieldCheck } from 'lucide-react';
@@ -10,23 +9,25 @@ import { ProductCard } from '../components/ProductCard';
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addToCart, convertPrice, t } = useStore();
+  const { addToCart, convertPrice, t, products } = useStore();
   const [product, setProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    // In a real app, this would be an API call by ID
-    const found = PRODUCTS.find(p => p.id === id);
+    // Look up product from store context
+    const found = products.find(p => p.id === id);
     if (found) {
       setProduct(found);
     } else {
-      // Handle not found
-      navigate('/');
+      // If products are loaded and we still don't find it, navigate back
+      if (products.length > 0) {
+        navigate('/');
+      }
     }
-  }, [id, navigate]);
+  }, [id, products, navigate]);
 
   if (!product) return <div className="p-20 text-center text-white">Loading...</div>;
 
-  const relatedProducts = PRODUCTS
+  const relatedProducts = products
     .filter(p => p.category === product.category && p.id !== product.id)
     .slice(0, 3);
 
@@ -74,7 +75,7 @@ export const ProductDetails: React.FC = () => {
              <span className="text-3xl font-bold text-white">{convertPrice(product.price)}</span>
              {product.category === 'PHYSICAL' && (
                <span className="text-sm text-green-400 flex items-center bg-green-900/20 px-2 py-1 rounded">
-                 <Check className="w-3 h-3 mr-1" /> In Stock
+                 <Check className="w-3 h-3 mr-1" /> {t('in_stock')}
                </span>
              )}
           </div>
@@ -106,7 +107,7 @@ export const ProductDetails: React.FC = () => {
               {t('add_to_cart')}
             </Button>
             <div className="flex items-center justify-center px-4 text-gray-500 text-xs">
-              <ShieldCheck className="w-4 h-4 mr-1 rtl:ml-1 rtl:mr-0" /> Secure Transaction
+              <ShieldCheck className="w-4 h-4 mr-1 rtl:ml-1 rtl:mr-0" /> {t('secure_transaction')}
             </div>
           </div>
         </div>

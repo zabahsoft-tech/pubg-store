@@ -84,7 +84,7 @@ export const Checkout: React.FC = () => {
     return (
       <div className="text-center py-20">
         <h2 className="text-2xl text-gray-400 font-bold mb-4">{t('cart_empty')}</h2>
-        <Button onClick={() => navigate('/')}>Go Shopping</Button>
+        <Button onClick={() => navigate('/')}>{t('go_shopping')}</Button>
       </div>
     );
   }
@@ -98,7 +98,7 @@ export const Checkout: React.FC = () => {
 
         {/* Cart Review */}
         <div className="bg-dark-800 rounded-xl p-6 border border-dark-700">
-          <h2 className="text-lg font-semibold text-white mb-4">Cart Items ({cart.length})</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">{t('cart_items')} ({cart.length})</h2>
           <div className="space-y-4">
             {cart.map((item) => (
               <div key={item.cartId} className="flex items-center justify-between bg-dark-900/50 p-3 rounded-lg">
@@ -177,12 +177,12 @@ export const Checkout: React.FC = () => {
           
           {/* Coupon Input */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-400 mb-2">Coupon Code</label>
+            <label className="block text-sm font-medium text-gray-400 mb-2">{t('coupon_code')}</label>
             <div className="flex space-x-2 rtl:space-x-reverse">
                <div className="relative flex-grow">
                  <input 
                     type="text" 
-                    placeholder="Enter code" 
+                    placeholder={t('promo_code_placeholder')}
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
                     disabled={!!appliedCoupon}
@@ -196,7 +196,7 @@ export const Checkout: React.FC = () => {
                  </button>
                ) : (
                  <button onClick={handleApplyCoupon} className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors">
-                    Apply
+                    {t('apply')}
                  </button>
                )}
             </div>
@@ -210,19 +210,19 @@ export const Checkout: React.FC = () => {
 
           <div className="space-y-2 text-sm mb-6 border-t border-dark-700 pt-4">
             <div className="flex justify-between text-gray-400">
-              <span>Subtotal</span>
+              <span>{t('subtotal')}</span>
               <span>{convertPrice(totalUSD)}</span>
             </div>
             
             {discountAmount > 0 && (
               <div className="flex justify-between text-brand-400 animate-in fade-in">
-                <span>Discount</span>
+                <span>{t('discount')}</span>
                 <span>-{convertPrice(discountAmount)}</span>
               </div>
             )}
             
             <div className="flex justify-between text-gray-400">
-              <span>Processing Fee</span>
+              <span>{t('processing_fee')}</span>
               <span>{convertPrice(0)}</span>
             </div>
             
@@ -242,7 +242,7 @@ export const Checkout: React.FC = () => {
           </Button>
           
           <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
-            <ShieldCheck className="w-3 h-3 mr-1" /> Secure Encrypted Payment
+            <ShieldCheck className="w-3 h-3 mr-1" /> {t('secure_transaction')}
           </div>
         </div>
       </div>
