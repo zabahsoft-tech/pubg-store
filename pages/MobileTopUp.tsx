@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Smartphone, Signal, CheckCircle, Zap, Tag, Check, X, CreditCard, Hash } from 'lucide-react';
+import { StripePaymentForm } from '../components/StripePaymentForm';
+import { Smartphone, Signal, CheckCircle, Zap, Tag, Check, X, CreditCard, Hash, Wallet, AlertCircle } from 'lucide-react';
 import { OPERATOR_PREFIXES, VALID_COUPONS } from '../constants';
-import { Coupon } from '../types';
+import { Coupon, PaymentMethod } from '../types';
 
 export const MobileTopUp: React.FC = () => {
-  const { t, convertPrice } = useStore();
+  const { t, convertPrice, currentTenant } = useStore();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [detectedOperator, setDetectedOperator] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WALLET');
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -61,7 +63,7 @@ export const MobileTopUp: React.FC = () => {
     if (!phoneNumber || !amount || !detectedOperator) return;
 
     setIsLoading(true);
-    // Simulate top up
+    // Simulate API call and delay
     setTimeout(() => {
         setSuccess(true);
         setIsLoading(false);
@@ -81,6 +83,8 @@ export const MobileTopUp: React.FC = () => {
     }
     finalAmount = Math.max(0, baseAmount - discountAmount);
   }
+
+  const isBalanceInsufficient = paymentMethod === 'WALLET' && currentTenant.balance < finalAmount;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -193,6 +197,37 @@ export const MobileTopUp: React.FC = () => {
                  <h3 className="text-xl font-bold text-white mb-6 flex items-center">
                     <CreditCard className="w-5 h-5 mr-2 text-brand-400" /> {t('summary')}
                  </h3>
+
+                 {/* Payment Method Selector */}
+                 <div className="mb-6 space-y-3">
+                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Method</label>
+                     <div 
+                        onClick={() => setPaymentMethod('WALLET')}
+                        className={`cursor-pointer rounded-lg p-3 border transition-all flex justify-between items-center ${paymentMethod === 'WALLET' ? 'border-brand-500 bg-brand-500/5' : 'border-dark-700 bg-dark-900/50'}`}
+                     >
+                        <div className="flex items-center space-x-2">
+                           <Wallet className="w-4 h-4 text-brand-400" />
+                           <span className="text-sm font-medium">Wallet</span>
+                        </div>
+                        <div className="text-xs text-gray-400">{convertPrice(currentTenant.balance)}</div>
+                     </div>
+
+                     <div 
+                        onClick={() => setPaymentMethod('STRIPE')}
+                        className={`cursor-pointer rounded-lg p-3 border transition-all flex justify-between items-center ${paymentMethod === 'STRIPE' ? 'border-brand-500 bg-brand-500/5' : 'border-dark-700 bg-dark-900/50'}`}
+                     >
+                        <div className="flex items-center space-x-2">
+                           <CreditCard className="w-4 h-4 text-brand-400" />
+                           <span className="text-sm font-medium">Stripe / Card</span>
+                        </div>
+                     </div>
+                 </div>
+
+                 {paymentMethod === 'STRIPE' && (
+                     <div className="mb-6">
+                         <StripePaymentForm isLoading={isLoading} />
+                     </div>
+                 )}
                  
                  {/* Coupon Section */}
                  <div className="mb-6 pb-6 border-b border-dark-700">
@@ -245,10 +280,17 @@ export const MobileTopUp: React.FC = () => {
                     </div>
                  </div>
 
+                 {isBalanceInsufficient && paymentMethod === 'WALLET' && (
+                     <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-lg text-sm flex items-start">
+                        <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                        Insufficient Balance
+                     </div>
+                 )}
+
                  <Button 
                    onClick={handleRecharge} 
                    className="w-full py-4 text-lg shadow-brand-500/20" 
-                   disabled={!detectedOperator || !amount || parseFloat(amount) <= 0} 
+                   disabled={!detectedOperator || !amount || parseFloat(amount) <= 0 || (isBalanceInsufficient && paymentMethod === 'WALLET')} 
                    isLoading={isLoading}
                  >
                    <Zap className="w-5 h-5 mr-2 fill-current" />

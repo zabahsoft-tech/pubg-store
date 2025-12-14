@@ -11,6 +11,13 @@ import { ProductDetails } from './pages/ProductDetails';
 import { BlogPostPage } from './pages/BlogPost';
 import { BlogList } from './pages/BlogList';
 
+// Admin Pages
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { BlogManager } from './pages/admin/BlogManager';
+import { BlogEditor } from './pages/admin/BlogEditor';
+import { ProductManager } from './pages/admin/ProductManager';
+import { ProductEditor } from './pages/admin/ProductEditor';
+
 // Separate Footer Component to access Store Context
 const Footer: React.FC = () => {
   const { pages } = useStore();
@@ -71,6 +78,18 @@ const App: React.FC = () => {
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/mobile-topup" element={<MobileTopUp />} />
+
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminDashboard />} />
+            
+            <Route path="/admin/blogs" element={<BlogManager />} />
+            <Route path="/admin/blogs/new" element={<BlogEditor />} />
+            <Route path="/admin/blogs/:id/edit" element={<BlogEditor />} />
+            
+            <Route path="/admin/products" element={<ProductManager />} />
+            <Route path="/admin/products/new" element={<ProductEditor />} />
+            <Route path="/admin/products/:id/edit" element={<ProductEditor />} />
+
           </Routes>
         </Layout>
       </HashRouter>

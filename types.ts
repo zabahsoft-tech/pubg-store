@@ -2,6 +2,7 @@ export type ProductType = 'PUBG' | 'IMO' | 'PHYSICAL';
 export type Currency = 'USD' | 'AFN'; // Multi-currency support
 export type OrderStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
 export type Language = 'en' | 'fa';
+export type PaymentMethod = 'WALLET' | 'STRIPE';
 
 export interface ExchangeRate {
   [key: string]: number; // e.g., 'AFN': 75
@@ -54,6 +55,7 @@ export interface Order {
   currency: Currency;
   status: OrderStatus;
   type: 'DIGITAL_BUNDLE' | 'PHYSICAL_SINGLE'; // To track the split logic
+  paymentMethod: PaymentMethod;
 }
 
 export interface Transaction {

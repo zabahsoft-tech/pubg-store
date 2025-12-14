@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { Wallet, Menu, UserCircle, Globe, ShoppingCart, ChevronDown, Building2, Store, Newspaper, LogOut, LayoutDashboard, User, Smartphone } from 'lucide-react';
+import { Wallet, Menu, UserCircle, Globe, ShoppingCart, ChevronDown, Building2, Store, Newspaper, LogOut, LayoutDashboard, User, Smartphone, ShieldCheck } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, cart, language, setLanguage, currency, setCurrency, currentTenant, switchTenant, t } = useStore();
@@ -190,6 +190,16 @@ export const Navbar: React.FC = () => {
                      
                      {/* Menu Items */}
                      <div className="p-2 space-y-1">
+                        {user.isAdmin && (
+                          <Link 
+                            to="/admin" 
+                            onClick={() => setIsUserOpen(false)}
+                            className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-yellow-400 hover:bg-dark-700 hover:text-yellow-300 transition-colors bg-yellow-500/5"
+                          >
+                             <span className="p-1.5 bg-yellow-500/10 rounded-lg"><ShieldCheck className="w-4 h-4" /></span>
+                             <span>{t('nav_admin')} 🛠️</span>
+                          </Link>
+                        )}
                         <Link 
                           to="/dashboard" 
                           onClick={() => setIsUserOpen(false)}

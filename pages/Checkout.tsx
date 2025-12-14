@@ -3,19 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { ShieldCheck, User, MapPin, Smartphone, Trash2, Tag, Check, X } from 'lucide-react';
+import { StripePaymentForm } from '../components/StripePaymentForm';
+import { ShieldCheck, User, MapPin, Smartphone, Trash2, Tag, Check, X, Wallet, CreditCard, AlertCircle } from 'lucide-react';
 import { VALID_COUPONS } from '../constants';
-import { Coupon } from '../types';
+import { Coupon, PaymentMethod } from '../types';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { cart, removeFromCart, processCheckout, t, convertPrice } = useStore();
+  const { cart, removeFromCart, processCheckout, t, convertPrice, currentTenant } = useStore();
   
   // Conditional Form State
   const [playerId, setPlayerId] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WALLET');
+  const [error, setError] = useState<string | null>(null);
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -40,6 +43,7 @@ export const Checkout: React.FC = () => {
   }
 
   const finalTotal = Math.max(0, totalUSD - discountAmount);
+  const isBalanceInsufficient = paymentMethod === 'WALLET' && currentTenant.balance < finalTotal;
 
   const handleApplyCoupon = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -68,16 +72,28 @@ export const Checkout: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    if (paymentMethod === 'WALLET' && isBalanceInsufficient) {
+        setError('Insufficient wallet balance. Please top up or use a card.');
+        return;
+    }
+
     setIsProcessing(true);
     
-    // Pass data to store to handle the splitting logic
-    await processCheckout(
-      { playerId: hasPubg ? playerId : undefined, phone: hasImo ? phone : undefined },
-      { address: hasPhysical ? address : undefined }
-    );
-
-    setIsProcessing(false);
-    navigate('/dashboard');
+    try {
+        // Pass data to store to handle the splitting logic
+        await processCheckout(
+            { playerId: hasPubg ? playerId : undefined, phone: hasImo ? phone : undefined },
+            { address: hasPhysical ? address : undefined },
+            paymentMethod
+        );
+        navigate('/dashboard');
+    } catch (err: any) {
+        setError(err.message || 'Checkout failed');
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   if (cart.length === 0) {
@@ -167,6 +183,59 @@ export const Checkout: React.FC = () => {
               />
             </div>
           )}
+
+           {/* Payment Method Section */}
+           <div className="bg-dark-800 rounded-xl p-6 border border-dark-700 animate-in fade-in">
+             <h3 className="text-white font-bold mb-4 flex items-center">
+                <CreditCard className="w-5 h-5 mr-2 text-brand-500" /> Payment Method
+             </h3>
+             
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                {/* Wallet Option */}
+                <div 
+                  onClick={() => setPaymentMethod('WALLET')}
+                  className={`cursor-pointer rounded-xl p-4 border-2 transition-all ${paymentMethod === 'WALLET' ? 'border-brand-500 bg-brand-500/10' : 'border-dark-700 bg-dark-900/50 hover:border-dark-600'}`}
+                >
+                   <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <Wallet className={`w-5 h-5 ${paymentMethod === 'WALLET' ? 'text-brand-400' : 'text-gray-400'}`} />
+                        <span className="font-bold text-white">Wallet</span>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentMethod === 'WALLET' ? 'border-brand-500' : 'border-gray-500'}`}>
+                         {paymentMethod === 'WALLET' && <div className="w-2 h-2 rounded-full bg-brand-500" />}
+                      </div>
+                   </div>
+                   <div className="text-sm text-gray-400">Balance: <span className="text-white font-mono">{convertPrice(currentTenant.balance)}</span></div>
+                   {isBalanceInsufficient && paymentMethod === 'WALLET' && (
+                       <div className="text-xs text-red-500 mt-2 flex items-center font-medium">
+                         <AlertCircle className="w-3 h-3 mr-1" /> Insufficient Balance
+                       </div>
+                   )}
+                </div>
+
+                {/* Stripe Option */}
+                <div 
+                  onClick={() => setPaymentMethod('STRIPE')}
+                  className={`cursor-pointer rounded-xl p-4 border-2 transition-all ${paymentMethod === 'STRIPE' ? 'border-brand-500 bg-brand-500/10' : 'border-dark-700 bg-dark-900/50 hover:border-dark-600'}`}
+                >
+                   <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <CreditCard className={`w-5 h-5 ${paymentMethod === 'STRIPE' ? 'text-brand-400' : 'text-gray-400'}`} />
+                        <span className="font-bold text-white">Card / Stripe</span>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${paymentMethod === 'STRIPE' ? 'border-brand-500' : 'border-gray-500'}`}>
+                         {paymentMethod === 'STRIPE' && <div className="w-2 h-2 rounded-full bg-brand-500" />}
+                      </div>
+                   </div>
+                   <div className="text-sm text-gray-400">Visa, Mastercard, Amex</div>
+                </div>
+             </div>
+
+             {paymentMethod === 'STRIPE' && (
+                <StripePaymentForm isLoading={isProcessing} />
+             )}
+           </div>
+
         </form>
       </div>
 
@@ -232,11 +301,19 @@ export const Checkout: React.FC = () => {
             </div>
           </div>
 
+          {error && (
+              <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-lg text-sm flex items-start">
+                  <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                  {error}
+              </div>
+          )}
+
           <Button 
             form="checkout-form"
             type="submit" 
             className="w-full py-4 text-lg shadow-brand-500/20" 
             isLoading={isProcessing}
+            disabled={isBalanceInsufficient && paymentMethod === 'WALLET'}
           >
             {t('btn_place_order')}
           </Button>
