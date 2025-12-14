@@ -3,37 +3,37 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { ShieldAlert, ArrowLeft, Save, Image as ImageIcon, DollarSign, Tag } from 'lucide-react';
-import { Product, ProductType } from '../../types';
+import { ShieldAlert, ArrowLeft, Save, Image as ImageIcon, DollarSign, Tag, Globe } from 'lucide-react';
+import { Product } from '../../types';
 
 export const ProductEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEditing = !!id;
   
-  const { user, products, addProduct, updateProduct } = useStore();
+  const { user, products, categories, addProduct, updateProduct, language } = useStore();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState<Partial<Product>>({
-    name: '',
-    category: 'PUBG',
+    en_name: '',
+    fa_name: '',
+    product_category_id: 1,
     price: 0,
-    amount: '',
-    description: '',
-    longDescription: '',
-    features: [],
-    image: 'https://picsum.photos/200',
-    bonus: '',
-    isFeatured: false
+    en_description: '',
+    fa_description: '',
+    thumbnail: 'https://picsum.photos/200',
+    is_featured: false,
+    is_active: true,
+    slug: ''
   });
 
-  const [featuresInput, setFeaturesInput] = useState('');
+  const [imageUrl, setImageUrl] = useState<string>('https://picsum.photos/200');
 
   useEffect(() => {
     if (isEditing && id) {
-      const product = products.find(p => p.id === id);
-      if (product) {
-        setFormData(product);
-        setFeaturesInput(product.features ? product.features.join('\n') : '');
+      const prod = products.find(p => p.id === Number(id));
+      if (prod) {
+        setFormData(prod);
+        setImageUrl(prod.thumbnail || '');
       } else {
         navigate('/admin/products');
       }
@@ -52,15 +52,19 @@ export const ProductEditor: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.price) return;
+    if (!formData.en_name || !formData.price) return;
 
     const processedData = {
         ...formData,
-        features: featuresInput.split('\n').filter(f => f.trim() !== '')
+        thumbnail: imageUrl,
+        slug: formData.slug || formData.en_name?.toLowerCase().replace(/\s+/g, '-') || `prod-${Date.now()}`,
+        // Fill farsi fields with english if empty for now
+        fa_name: formData.fa_name || formData.en_name,
+        fa_description: formData.fa_description || formData.en_description
     };
 
     if (isEditing && id) {
-      await updateProduct(id, processedData);
+      await updateProduct(Number(id), processedData);
     } else {
       await addProduct(processedData as Omit<Product, 'id'>);
     }
@@ -86,9 +90,9 @@ export const ProductEditor: React.FC = () => {
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <Input 
-                 label="Product Name" 
-                 value={formData.name} 
-                 onChange={e => setFormData({ ...formData, name: e.target.value })}
+                 label="English Name" 
+                 value={formData.en_name} 
+                 onChange={e => setFormData({ ...formData, en_name: e.target.value })}
                  required
                  placeholder="e.g., 60 UC Pack"
                />
@@ -97,17 +101,28 @@ export const ProductEditor: React.FC = () => {
                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Category</label>
                  <select 
                     className="w-full bg-dark-900 border border-dark-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-brand-500"
-                    value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value as ProductType })}
+                    value={formData.product_category_id}
+                    onChange={e => setFormData({ ...formData, product_category_id: Number(e.target.value) })}
                  >
-                    <option value="PUBG">PUBG Mobile</option>
-                    <option value="IMO">IMO Chat</option>
-                    <option value="PHYSICAL">Physical Merch</option>
+                    {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                            {language === 'fa' ? cat.fa_name : cat.en_name}
+                        </option>
+                    ))}
                  </select>
                </div>
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <Input 
+                 label="Farsi Name" 
+                 value={formData.fa_name} 
+                 onChange={e => setFormData({ ...formData, fa_name: e.target.value })}
+                 placeholder="Persian translation"
+                 dir="rtl"
+                 icon={<Globe className="w-4 h-4" />}
+               />
+               
                <Input 
                  label="Price (USD)" 
                  type="number"
@@ -117,43 +132,26 @@ export const ProductEditor: React.FC = () => {
                  required
                  icon={<DollarSign className="w-4 h-4" />}
                />
-               
-               <Input 
-                 label="Amount / Size" 
-                 value={formData.amount || ''} 
-                 onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                 placeholder="e.g. 600 UC or 'Large'"
-                 icon={<Tag className="w-4 h-4" />}
-               />
            </div>
 
            <div>
-             <label className="block text-sm font-medium text-gray-300 mb-1.5">Short Description</label>
-             <input 
-               className="w-full bg-dark-900 border border-dark-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-brand-500"
-               value={formData.description || ''}
-               onChange={e => setFormData({ ...formData, description: e.target.value })}
-               placeholder="Brief subtitle for the card view"
-             />
-           </div>
-
-           <div>
-             <label className="block text-sm font-medium text-gray-300 mb-1.5">Detailed Description</label>
+             <label className="block text-sm font-medium text-gray-300 mb-1.5">Description (EN)</label>
              <textarea 
                className="w-full bg-dark-900 border border-dark-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-brand-500 min-h-[120px]"
-               value={formData.longDescription || ''}
-               onChange={e => setFormData({ ...formData, longDescription: e.target.value })}
+               value={formData.en_description || ''}
+               onChange={e => setFormData({ ...formData, en_description: e.target.value })}
                placeholder="Full details about the product..."
              />
            </div>
 
            <div>
-             <label className="block text-sm font-medium text-gray-300 mb-1.5">Features (One per line)</label>
+             <label className="block text-sm font-medium text-gray-300 mb-1.5">Description (FA)</label>
              <textarea 
-               className="w-full bg-dark-900 border border-dark-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-brand-500 min-h-[120px] font-mono text-sm"
-               value={featuresInput}
-               onChange={e => setFeaturesInput(e.target.value)}
-               placeholder="Instant Delivery&#10;Global Region&#10;Secure Payment"
+               className="w-full bg-dark-900 border border-dark-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-brand-500 min-h-[120px]"
+               value={formData.fa_description || ''}
+               onChange={e => setFormData({ ...formData, fa_description: e.target.value })}
+               placeholder="توضیحات محصول..."
+               dir="rtl"
              />
            </div>
         </div>
@@ -167,36 +165,52 @@ export const ProductEditor: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">Image URL</label>
                 <div className="relative">
                   <Input 
-                    value={formData.image} 
-                    onChange={e => setFormData({ ...formData, image: e.target.value })}
+                    value={imageUrl} 
+                    onChange={e => setImageUrl(e.target.value)}
                     icon={<ImageIcon className="w-4 h-4" />}
                   />
                 </div>
-                {formData.image && (
+                {imageUrl && (
                   <div className="mt-3 aspect-square rounded-lg overflow-hidden border border-dark-600 bg-dark-900">
-                     <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                     <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
                   </div>
                 )}
               </div>
 
               <Input 
-                 label="Bonus Label" 
-                 value={formData.bonus || ''} 
-                 onChange={e => setFormData({ ...formData, bonus: e.target.value })}
-                 placeholder="e.g. +10% FREE"
+                 label="Slug (URL)" 
+                 value={formData.slug || ''} 
+                 onChange={e => setFormData({ ...formData, slug: e.target.value })}
+                 placeholder="Auto-generated if empty"
+                 icon={<Tag className="w-4 h-4" />}
               />
               
-              <div className="flex items-center space-x-3 bg-dark-900 p-3 rounded-lg border border-dark-700">
-                <input 
-                  type="checkbox" 
-                  id="featured"
-                  checked={formData.isFeatured}
-                  onChange={e => setFormData({ ...formData, isFeatured: e.target.checked })}
-                  className="w-5 h-5 rounded border-dark-600 text-brand-500 focus:ring-brand-500 bg-dark-800"
-                />
-                <label htmlFor="featured" className="text-sm text-gray-300 select-none cursor-pointer">
-                  Featured Product
-                </label>
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between bg-dark-900 p-3 rounded-lg border border-dark-700">
+                  <label htmlFor="active" className="text-sm text-gray-300 select-none cursor-pointer">
+                    Active
+                  </label>
+                  <input 
+                    type="checkbox" 
+                    id="active"
+                    checked={formData.is_active}
+                    onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
+                    className="w-5 h-5 rounded border-dark-600 text-brand-500 focus:ring-brand-500 bg-dark-800"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between bg-dark-900 p-3 rounded-lg border border-dark-700">
+                  <label htmlFor="featured" className="text-sm text-gray-300 select-none cursor-pointer">
+                    Featured
+                  </label>
+                  <input 
+                    type="checkbox" 
+                    id="featured"
+                    checked={formData.is_featured}
+                    onChange={e => setFormData({ ...formData, is_featured: e.target.checked })}
+                    className="w-5 h-5 rounded border-dark-600 text-brand-500 focus:ring-brand-500 bg-dark-800"
+                  />
+                </div>
               </div>
 
               <div className="pt-4 border-t border-dark-700">

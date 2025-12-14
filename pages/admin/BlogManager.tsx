@@ -20,7 +20,7 @@ export const BlogManager: React.FC = () => {
     );
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: number) => {
     if (confirm('Are you sure you want to delete this post?')) {
       deleteBlogPost(id);
     }
@@ -51,8 +51,9 @@ export const BlogManager: React.FC = () => {
              <thead className="bg-dark-900/50 text-gray-400 text-sm uppercase tracking-wider border-b border-dark-700">
                 <tr>
                    <th className="px-6 py-4">Image</th>
-                   <th className="px-6 py-4">Title</th>
+                   <th className="px-6 py-4">Title (EN / FA)</th>
                    <th className="px-6 py-4">Date</th>
+                   <th className="px-6 py-4 text-center">Status</th>
                    <th className="px-6 py-4 text-center">Featured</th>
                    <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -60,7 +61,7 @@ export const BlogManager: React.FC = () => {
              <tbody className="divide-y divide-dark-700">
                 {blogPosts.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                       No blog posts found. Create your first one!
                     </td>
                   </tr>
@@ -68,16 +69,21 @@ export const BlogManager: React.FC = () => {
                   blogPosts.map(post => (
                     <tr key={post.id} className="hover:bg-dark-700/50 transition-colors">
                       <td className="px-6 py-4">
-                        <img src={post.image} alt="" className="w-16 h-10 object-cover rounded-lg border border-dark-600" />
+                        <img src={post.thumbnail} alt="" className="w-16 h-10 object-cover rounded-lg border border-dark-600" />
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-white mb-1 truncate max-w-xs">{post.title}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-xs">{post.excerpt}</div>
+                        <div className="font-bold text-white mb-1 truncate max-w-xs">{post.en_title}</div>
+                        <div className="text-xs text-gray-400 truncate max-w-xs">{post.fa_title}</div>
                       </td>
-                      <td className="px-6 py-4 text-gray-400 text-sm">{post.date}</td>
+                      <td className="px-6 py-4 text-gray-400 text-sm">{post.created_at}</td>
                       <td className="px-6 py-4 text-center">
-                        {post.isFeatured ? 
-                          <CheckCircle className="w-5 h-5 text-green-500 mx-auto" /> : 
+                        <span className={`px-2 py-0.5 text-xs rounded ${post.is_active ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                           {post.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {post.is_featured ? 
+                          <CheckCircle className="w-5 h-5 text-brand-500 mx-auto" /> : 
                           <XCircle className="w-5 h-5 text-dark-600 mx-auto" />
                         }
                       </td>

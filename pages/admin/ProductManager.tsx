@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Plus, Edit, Trash2, ShieldAlert, Package, Search } from 'lucide-react';
 
 export const ProductManager: React.FC = () => {
-  const { user, products, deleteProduct, convertPrice } = useStore();
+  const { user, products, categories, deleteProduct, convertPrice, language } = useStore();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 
   if (!user.isAdmin) {
     return (
@@ -18,20 +20,26 @@ export const ProductManager: React.FC = () => {
     );
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: number) => {
     if (confirm('Are you sure you want to delete this product?')) {
       deleteProduct(id);
     }
   };
 
-  const getCategoryColor = (cat: string) => {
-    switch(cat) {
-      case 'PUBG': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-      case 'IMO': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-      case 'PHYSICAL': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
-      default: return 'bg-gray-500/10 text-gray-500';
-    }
+  // Helper to get category name
+  const getCategoryName = (catId: number) => {
+    const cat = categories.find(c => c.id === catId);
+    return cat ? (language === 'fa' ? cat.fa_name : cat.en_name) : 'Unknown';
   };
+
+  const filteredProducts = products.filter(prod => {
+    const query = searchQuery.toLowerCase();
+    return (
+      prod.en_name.toLowerCase().includes(query) ||
+      prod.fa_name.toLowerCase().includes(query) ||
+      prod.id.toString().includes(query)
+    );
+  });
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in">
@@ -50,6 +58,17 @@ export const ProductManager: React.FC = () => {
          </Button>
       </div>
 
+      {/* Search Bar */}
+      <div className="w-full">
+         <Input 
+           placeholder="Search by English Name, Farsi Name, or ID..." 
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+           icon={<Search className="w-5 h-5 text-gray-400" />}
+           className="bg-dark-800 border-dark-700 focus:bg-dark-900"
+         />
+      </div>
+
       <div className="bg-dark-800 rounded-xl border border-dark-700 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -63,47 +82,47 @@ export const ProductManager: React.FC = () => {
                 </tr>
              </thead>
              <tbody className="divide-y divide-dark-700">
-                {products.length === 0 ? (
+                {filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                      No products found. Start selling by adding one!
+                      {searchQuery ? 'No matching products found.' : 'No products found. Start selling by adding one!'}
                     </td>
                   </tr>
                 ) : (
-                  products.map(product => (
-                    <tr key={product.id} className="hover:bg-dark-700/50 transition-colors">
+                  filteredProducts.map(prod => (
+                    <tr key={prod.id} className="hover:bg-dark-700/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                            <img src={product.image} alt="" className="w-12 h-12 object-cover rounded-lg border border-dark-600 bg-dark-900" />
+                            <img src={prod.thumbnail || 'https://picsum.photos/50'} alt="" className="w-12 h-12 object-cover rounded-lg border border-dark-600 bg-dark-900" />
                             <div>
-                                <div className="font-bold text-white text-sm">{product.name}</div>
-                                <div className="text-xs text-gray-500">{product.id}</div>
+                                <div className="font-bold text-white text-sm">{prod.en_name}</div>
+                                <div className="text-xs text-gray-500">ID: {prod.id}</div>
                             </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                         <span className={`px-2 py-1 rounded text-xs font-bold border ${getCategoryColor(product.category)}`}>
-                            {product.category}
+                         <span className="px-2 py-1 rounded text-xs font-bold border bg-gray-500/10 text-gray-300 border-gray-500/20">
+                            {getCategoryName(prod.product_category_id)}
                          </span>
                       </td>
                       <td className="px-6 py-4 text-white font-mono">
-                         {convertPrice(product.price)}
+                         {convertPrice(prod.price)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-400">
-                         {product.amount || product.description}
+                      <td className="px-6 py-4 text-sm text-gray-400 truncate max-w-xs">
+                         {prod.en_description}
                       </td>
                       <td className="px-6 py-4 text-right space-x-2 rtl:space-x-reverse">
                          <Button 
                             size="sm" 
                             variant="secondary" 
-                            onClick={() => navigate(`/admin/products/${product.id}/edit`)}
+                            onClick={() => navigate(`/admin/products/${prod.id}/edit`)}
                           >
                             <Edit className="w-4 h-4" />
                          </Button>
                          <Button 
                             size="sm" 
                             variant="danger" 
-                            onClick={() => handleDelete(product.id)}
+                            onClick={() => handleDelete(prod.id)}
                             className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
                           >
                             <Trash2 className="w-4 h-4" />

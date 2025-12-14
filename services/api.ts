@@ -1,19 +1,14 @@
-import { User, Product, Transaction, BlogPost, Page } from '../types';
-import { MOCK_USER, PRODUCTS, BLOG_POSTS, DYNAMIC_PAGES } from '../constants';
+import { User, Product, ProductCategory, OrderProduct, Transaction, BlogPost, Page } from '../types';
+import { MOCK_USER, PRODUCTS, CATEGORIES, BLOG_POSTS, DYNAMIC_PAGES } from '../constants';
 
 /**
  * API CONFIGURATION
- * Change this to false to connect to your real Laravel Backend.
  */
 const USE_MOCK_DATA = true; 
 const API_BASE_URL = 'http://localhost:8000/api';
 
-/**
- * Generic Fetch Wrapper
- * Handles headers and basic error parsing from Laravel responses.
- */
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('auth_token'); // Assuming you store JWT here
+  const token = localStorage.getItem('auth_token');
   
   const headers = {
     'Content-Type': 'application/json',
@@ -35,18 +30,10 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   return response.json();
 }
 
-/**
- * API SERVICES
- * Each function corresponds to a backend action.
- */
 export const api = {
 
-  /**
-   * Fetch current user data (profile, wallet balance, transactions)
-   */
   getUser: async (): Promise<User> => {
     if (USE_MOCK_DATA) {
-      // Simulate network delay
       await new Promise(r => setTimeout(r, 800));
       return MOCK_USER;
     }
@@ -54,36 +41,113 @@ export const api = {
   },
 
   /**
-   * Fetch available products
+   * PRODUCTS API
    */
   getProducts: async (): Promise<Product[]> => {
     if (USE_MOCK_DATA) {
+      await new Promise(r => setTimeout(r, 600));
       return PRODUCTS;
     }
     return apiRequest<Product[]>('/products');
   },
 
+  getFeaturedProducts: async (): Promise<Product[]> => {
+    if (USE_MOCK_DATA) {
+      await new Promise(r => setTimeout(r, 400));
+      return PRODUCTS.filter(p => p.is_featured);
+    }
+    return apiRequest<Product[]>('/products/featured');
+  },
+
+  getProduct: async (slug: string): Promise<Product> => {
+    if (USE_MOCK_DATA) {
+      await new Promise(r => setTimeout(r, 400));
+      const prod = PRODUCTS.find(p => p.slug === slug);
+      if (!prod) throw new Error('Product not found');
+      return prod;
+    }
+    return apiRequest<Product>(`/products/${slug}`);
+  },
+
   /**
-   * Fetch Blog Posts
+   * CATEGORIES API
    */
+  getCategories: async (): Promise<ProductCategory[]> => {
+    if (USE_MOCK_DATA) {
+      await new Promise(r => setTimeout(r, 500));
+      return CATEGORIES;
+    }
+    return apiRequest<ProductCategory[]>('/product-categories');
+  },
+
+  getCategoryProducts: async (slug: string): Promise<Product[]> => {
+    if (USE_MOCK_DATA) {
+        await new Promise(r => setTimeout(r, 500));
+        const category = CATEGORIES.find(c => c.slug === slug);
+        if (!category) return [];
+        return PRODUCTS.filter(p => p.product_category_id === category.id);
+    }
+    return apiRequest<Product[]>(`/product-categories/${slug}/products`);
+  },
+
+  /**
+   * ORDER PRODUCTS API
+   */
+  getOrderProducts: async (): Promise<OrderProduct[]> => {
+     if (USE_MOCK_DATA) {
+         // Return mock user's orders
+         return MOCK_USER.orders;
+     }
+     return apiRequest<OrderProduct[]>('/order-products');
+  },
+
+  createOrderProduct: async (data: Partial<OrderProduct>): Promise<OrderProduct> => {
+      if (USE_MOCK_DATA) {
+          await new Promise(r => setTimeout(r, 1500));
+          const newOrder: OrderProduct = {
+              id: Date.now(),
+              is_paid: true,
+              status: 'pending',
+              pm_type: data.pm_type || 'wallet',
+              product_id: data.product_id!,
+              quantity: data.quantity || 1,
+              total_price: data.total_price || 0,
+              user_id: 12345, // Mock ID
+              created_at: new Date().toISOString(),
+              // Include product relation for UI mock
+              product: PRODUCTS.find(p => p.id === data.product_id)
+          };
+          return newOrder;
+      }
+      return apiRequest<OrderProduct>('/order-products', {
+          method: 'POST',
+          body: JSON.stringify(data)
+      });
+  },
+
+  // ... Blog and other existing APIs
   getBlogPosts: async (): Promise<BlogPost[]> => {
     if (USE_MOCK_DATA) {
       await new Promise(r => setTimeout(r, 500));
       return BLOG_POSTS;
     }
-    return apiRequest<BlogPost[]>('/posts');
+    return apiRequest<BlogPost[]>('/blogs');
   },
 
-  /**
-   * Fetch Dynamic Pages
-   * GET /api/pages
-   * GET /api/pages?featured=1
-   */
+  getBlogPost: async (idOrSlug: string | number): Promise<BlogPost> => {
+    if (USE_MOCK_DATA) {
+      await new Promise(r => setTimeout(r, 400));
+      const post = BLOG_POSTS.find(p => p.id === Number(idOrSlug) || p.slug === idOrSlug);
+      if (!post) throw new Error('Post not found');
+      return post;
+    }
+    return apiRequest<BlogPost>(`/blogs/${idOrSlug}`);
+  },
+
   getPages: async (featured?: boolean): Promise<Page[]> => {
     if (USE_MOCK_DATA) {
        await new Promise(r => setTimeout(r, 600));
        if (featured) {
-         // Mock logic: return pages marked for footer as "featured" for this example
          return DYNAMIC_PAGES.filter(p => p.showInFooter);
        }
        return DYNAMIC_PAGES;
@@ -92,10 +156,6 @@ export const api = {
     return apiRequest<Page[]>(`/pages${query}`);
   },
 
-  /**
-   * Fetch Single Page
-   * GET /api/pages/{slug}
-   */
   getPage: async (slug: string): Promise<Page> => {
      if (USE_MOCK_DATA) {
         await new Promise(r => setTimeout(r, 400));
@@ -106,16 +166,11 @@ export const api = {
      return apiRequest<Page>(`/pages/${slug}`);
   },
 
-  /**
-   * Top-up Wallet
-   * @param amount The amount to add
-   * @param tenantId The workspace/tenant ID
-   */
   topUpWallet: async (amount: number, tenantId: string): Promise<{ balance: number, transaction: Transaction }> => {
     if (USE_MOCK_DATA) {
       await new Promise(r => setTimeout(r, 1500));
       return {
-        balance: 100 + amount, // Simplified mock logic
+        balance: 100 + amount, 
         transaction: {
           id: `tx_${Date.now()}`,
           date: new Date().toISOString(),
@@ -134,40 +189,6 @@ export const api = {
     });
   },
 
-  /**
-   * Process a Purchase
-   */
-  purchase: async (
-    amount: number, 
-    description: string, 
-    method: 'WALLET' | 'STRIPE', 
-    tenantId: string
-  ): Promise<{ success: boolean, transaction: Transaction }> => {
-    if (USE_MOCK_DATA) {
-      await new Promise(r => setTimeout(r, 2000));
-      return {
-        success: true,
-        transaction: {
-          id: `tx_${Date.now()}`,
-          date: new Date().toISOString(),
-          type: 'PURCHASE',
-          description,
-          amount: -amount,
-          status: 'COMPLETED',
-          paymentMethod: method,
-          tenantId
-        }
-      };
-    }
-    return apiRequest('/purchase', {
-      method: 'POST',
-      body: JSON.stringify({ amount, description, method, tenant_id: tenantId }),
-    });
-  },
-
-  /**
-   * Update User Profile
-   */
   updateProfile: async (data: Partial<User>): Promise<User> => {
     if (USE_MOCK_DATA) {
       await new Promise(r => setTimeout(r, 1000));
@@ -179,9 +200,6 @@ export const api = {
     });
   },
 
-  /**
-   * Verify Email
-   */
   verifyEmail: async (): Promise<void> => {
     if (USE_MOCK_DATA) {
       await new Promise(r => setTimeout(r, 2000));

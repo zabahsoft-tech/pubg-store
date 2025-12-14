@@ -1,36 +1,57 @@
-export type ProductType = 'PUBG' | 'IMO' | 'PHYSICAL';
-export type Currency = 'USD' | 'AFN'; // Multi-currency support
-export type OrderStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+export type Currency = 'USD' | 'AFN';
+export type OrderStatus = 'pending' | 'completed' | 'failed';
 export type Language = 'en' | 'fa';
 export type PaymentMethod = 'WALLET' | 'STRIPE';
 
 export interface ExchangeRate {
-  [key: string]: number; // e.g., 'AFN': 75
+  [key: string]: number;
 }
 
+// Laravel ProductCategory Model
+export interface ProductCategory {
+  id: number;
+  en_name: string;
+  fa_name: string;
+  en_description?: string;
+  fa_description?: string;
+  media?: string[]; // Cast as array
+  thumbnail?: string;
+  slug: string;
+  is_active: boolean;
+}
+
+// Laravel Product Model
 export interface Product {
-  id: string;
-  name: string;
-  category: ProductType;
-  description?: string;
-  longDescription?: string; // For Single Page
-  features?: string[]; // Bullet points for Single Page
-  amount?: string; // For digital (e.g., "60 UC")
-  price: number; // Base price in USD
-  bonus?: string;
-  image: string;
-  isFeatured?: boolean;
+  id: number;
+  en_name: string;
+  fa_name: string;
+  thumbnail: string; // Single string in fillable, usually URL
+  media?: string[]; // Cast as array
+  en_description: string;
+  fa_description: string;
+  price: number;
+  discount?: number;
+  slug: string;
+  is_featured: boolean;
+  is_active: boolean;
+  product_category_id: number;
+  // Relation
+  product_category?: ProductCategory;
 }
 
-// CMS: Blog Post for Slider
+// CMS: Blog Post
 export interface BlogPost {
-  id: string;
-  title: string;
-  excerpt: string;
-  content: string; // Full content for the blog post page
-  image: string;
-  isFeatured: boolean; // Determines if it appears on Homepage Slider
-  date: string;
+  id: number;
+  slug: string;
+  en_title: string;
+  fa_title: string;
+  en_description: string;
+  fa_description: string;
+  thumbnail: string;
+  is_active: boolean;
+  is_featured: boolean;
+  created_at: string;
+  user_id?: number;
 }
 
 // CMS: Dynamic Pages
@@ -42,31 +63,27 @@ export interface Page {
   showInFooter: boolean;
 }
 
-// Cart Item
+// Cart Item extends Product
 export interface CartItem extends Product {
-  cartId: string; // Unique ID for this instance in cart
+  cartId: string;
 }
 
-export interface Order {
-  id: string;
-  date: string;
-  items: CartItem[]; // Array of items in this specific order
-  totalAmount: number;
-  currency: Currency;
-  status: OrderStatus;
-  type: 'DIGITAL_BUNDLE' | 'PHYSICAL_SINGLE'; // To track the split logic
-  paymentMethod: PaymentMethod;
-}
-
-export interface Transaction {
-  id: string;
-  date: string;
-  type: 'DEPOSIT' | 'PURCHASE';
-  description: string;
-  amount: number;
-  status: string;
-  paymentMethod: string;
-  tenantId: string;
+// Laravel OrderProduct Model
+export interface OrderProduct {
+  id: number;
+  pm_type: string; // 'stripe', 'wallet'
+  quantity: number;
+  total_price: number;
+  is_paid: boolean;
+  status: string; // 'pending', etc.
+  product_id: number;
+  user_id: number;
+  coupon_id?: number;
+  created_at?: string;
+  // Relations
+  product?: Product;
+  user?: User;
+  coupon?: Coupon;
 }
 
 export interface Tenant {
@@ -77,18 +94,30 @@ export interface Tenant {
 }
 
 export interface User {
-  id: string;
+  id: string; 
   name: string;
   email: string;
   phoneNumber?: string;
   emailVerified: boolean;
-  isAdmin: boolean; // Super Admin Flag
+  isAdmin: boolean;
   tenants: Tenant[];
-  orders: Order[]; // Changed from transactions to orders for better structure
+  orders: OrderProduct[]; 
 }
 
 export interface Coupon {
+  id: number;
   code: string;
   discountType: 'PERCENTAGE' | 'FIXED';
   value: number;
+}
+
+export interface Transaction {
+  id: string;
+  date: string;
+  type: 'DEPOSIT' | 'WITHDRAWAL' | 'PAYMENT' | 'REFUND';
+  description: string;
+  amount: number;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  paymentMethod?: string;
+  tenantId: string;
 }

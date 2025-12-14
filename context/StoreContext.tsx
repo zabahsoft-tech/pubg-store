@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Product, Language, Tenant, Currency, CartItem, Order, Page, BlogPost, PaymentMethod } from '../types';
-import { MOCK_USER, TRANSLATIONS, EXCHANGE_RATES, DYNAMIC_PAGES, PRODUCTS } from '../constants';
+import { User, Product, ProductCategory, Language, Tenant, Currency, CartItem, OrderProduct, Page, BlogPost, PaymentMethod } from '../types';
+import { MOCK_USER, TRANSLATIONS, EXCHANGE_RATES, DYNAMIC_PAGES, PRODUCTS, CATEGORIES } from '../constants';
 import { api } from '../services/api';
 
 interface StoreContextType {
@@ -12,6 +12,7 @@ interface StoreContextType {
   pages: Page[];
   blogPosts: BlogPost[];
   products: Product[];
+  categories: ProductCategory[];
   currentTenant: Tenant;
   setLanguage: (lang: Language) => void;
   setCurrency: (curr: Currency) => void;
@@ -20,8 +21,7 @@ interface StoreContextType {
   clearCart: () => void;
   convertPrice: (priceUSD: number) => string;
   processCheckout: (
-    digitalData: { playerId?: string, phone?: string }, 
-    physicalData: { address?: string },
+    metaData: { playerId?: string, phone?: string, address?: string },
     paymentMethod: PaymentMethod
   ) => Promise<void>;
   topUpWallet: (amount: number) => Promise<void>;
@@ -30,13 +30,13 @@ interface StoreContextType {
   switchTenant: (tenantId: string) => void;
   t: (key: string) => string;
   // Blog Actions
-  addBlogPost: (post: Omit<BlogPost, 'id' | 'date'>) => Promise<void>;
-  updateBlogPost: (id: string, post: Partial<BlogPost>) => Promise<void>;
-  deleteBlogPost: (id: string) => Promise<void>;
-  // Product Actions
-  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
-  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
-  deleteProduct: (id: string) => Promise<void>;
+  addBlogPost: (post: Omit<BlogPost, 'id' | 'created_at'>) => Promise<BlogPost>;
+  updateBlogPost: (id: number, post: Partial<BlogPost>) => Promise<void>;
+  deleteBlogPost: (id: number) => Promise<void>;
+  // Product Actions (Admin)
+  addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
+  updateProduct: (id: number, product: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: number) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -72,7 +72,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     initialData: PRODUCTS,
   });
 
-  // 4. Fetch Pages (Dynamic)
+  // 4. Fetch Categories
+  const { data: categories = CATEGORIES } = useQuery({
+    queryKey: ['categories'],
+    queryFn: api.getCategories,
+    initialData: CATEGORIES,
+  });
+
+  // 5. Fetch Pages
   const { data: pages = DYNAMIC_PAGES } = useQuery({
     queryKey: ['pages'],
     queryFn: () => api.getPages(),
@@ -101,7 +108,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setCurrentTenantId(tenantId);
   };
 
-  // --- Currency Logic ---
   const convertPrice = (priceUSD: number): string => {
     const rate = EXCHANGE_RATES[currency];
     const converted = priceUSD * rate;
@@ -124,15 +130,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // --- Mutations ---
 
-  // Wallet Top Up
   const topUpMutation = useMutation({
     mutationFn: async (amount: number) => {
-      // Call API
       const response = await api.topUpWallet(amount, currentTenant.id);
       return response;
     },
     onSuccess: (data) => {
-      // Update User Balance locally
       queryClient.setQueryData(['user'], (oldUser: User) => ({
         ...oldUser,
         tenants: oldUser.tenants.map(t => 
@@ -146,9 +149,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await topUpMutation.mutateAsync(amount);
   };
 
-  // Checkout Mutation
+  // Checkout Mutation - Creates OrderProducts
   const checkoutMutation = useMutation({
-    mutationFn: async ({ digitalData, physicalData, paymentMethod }: { digitalData: any, physicalData: any, paymentMethod: PaymentMethod }) => {
+    mutationFn: async ({ metaData, paymentMethod }: { metaData: any, paymentMethod: PaymentMethod }) => {
       const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
 
       // Check balance if Wallet payment
@@ -158,46 +161,27 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
          }
       }
 
-      // Simulate API Processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const newOrders: Order[] = [];
-      const digitalItems = cart.filter(item => item.category !== 'PHYSICAL');
-      const physicalItems = cart.filter(item => item.category === 'PHYSICAL');
-
-      if (digitalItems.length > 0) {
-        newOrders.push({
-          id: `ord_dig_${Date.now()}`,
-          date: new Date().toISOString(),
-          items: digitalItems,
-          totalAmount: digitalItems.reduce((sum, item) => sum + item.price, 0),
-          currency: 'USD',
-          status: 'COMPLETED',
-          type: 'DIGITAL_BUNDLE',
-          paymentMethod
-        });
+      // Create OrderProduct for each item in cart
+      const createdOrders: OrderProduct[] = [];
+      for (const item of cart) {
+          const order = await api.createOrderProduct({
+              product_id: item.id,
+              pm_type: paymentMethod.toLowerCase(),
+              status: 'pending',
+              is_paid: true, 
+              quantity: 1, // Assuming 1 per cart item for now
+              total_price: item.price,
+              // Pass metadata to backend if supported by OrderProduct
+          });
+          createdOrders.push(order);
       }
 
-      physicalItems.forEach((item, index) => {
-        newOrders.push({
-          id: `ord_phys_${Date.now()}_${index}`,
-          date: new Date().toISOString(),
-          items: [item],
-          totalAmount: item.price,
-          currency: 'USD',
-          status: 'PENDING',
-          type: 'PHYSICAL_SINGLE',
-          paymentMethod
-        });
-      });
-
-      return { newOrders, totalAmount };
+      return { createdOrders, totalAmount };
     },
-    onSuccess: ({ newOrders, totalAmount }, variables) => {
-      // Update User Orders
+    onSuccess: ({ createdOrders, totalAmount }, variables) => {
+      // Update User Orders and Balance
       queryClient.setQueryData(['user'], (oldUser: User) => {
         const updatedTenants = oldUser.tenants.map(t => {
-            // Deduct balance if paid by wallet
             if (t.id === currentTenant.id && variables.paymentMethod === 'WALLET') {
                 return { ...t, balance: t.balance - totalAmount };
             }
@@ -207,7 +191,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return {
           ...oldUser,
           tenants: updatedTenants,
-          orders: [...newOrders, ...oldUser.orders]
+          orders: [...createdOrders, ...oldUser.orders]
         };
       });
       clearCart();
@@ -215,14 +199,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   });
 
   const processCheckout = async (
-    digitalData: { playerId?: string, phone?: string }, 
-    physicalData: { address?: string },
+    metaData: { playerId?: string, phone?: string, address?: string },
     paymentMethod: PaymentMethod
   ) => {
-    await checkoutMutation.mutateAsync({ digitalData, physicalData, paymentMethod });
+    await checkoutMutation.mutateAsync({ metaData, paymentMethod });
   };
 
-  // Email Verification Mutation
   const verifyEmailMutation = useMutation({
     mutationFn: api.verifyEmail,
     onSuccess: () => {
@@ -237,7 +219,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await verifyEmailMutation.mutateAsync();
   };
 
-  // Profile Update Mutation
   const updateProfileMutation = useMutation({
     mutationFn: api.updateProfile,
     onSuccess: (updatedUser) => {
@@ -249,108 +230,36 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await updateProfileMutation.mutateAsync(data);
   };
 
-  // --- Blog Mutations (Mocked Persistence) ---
-  
+  // Blog Mutations
   const addBlogPostMutation = useMutation({
-    mutationFn: async (post: Omit<BlogPost, 'id' | 'date'>) => {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
-      const newPost: BlogPost = {
-        ...post,
-        id: `blog_${Date.now()}`,
-        date: new Date().toISOString().split('T')[0]
-      };
+    mutationFn: async (post: Omit<BlogPost, 'id' | 'created_at'>) => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const newPost: BlogPost = { ...post, id: Math.random(), created_at: new Date().toISOString().split('T')[0] };
       return newPost;
     },
-    onSuccess: (newPost) => {
-      queryClient.setQueryData(['blogPosts'], (old: BlogPost[] = []) => [newPost, ...old]);
-    }
+    onSuccess: (newPost) => queryClient.setQueryData(['blogPosts'], (old: BlogPost[] = []) => [newPost, ...old])
   });
+  const addBlogPost = async (post: Omit<BlogPost, 'id' | 'created_at'>) => addBlogPostMutation.mutateAsync(post);
+  const updateBlogPost = async (id: number, post: Partial<BlogPost>) => {};
+  const deleteBlogPost = async (id: number) => {};
 
-  const updateBlogPostMutation = useMutation({
-    mutationFn: async ({ id, post }: { id: string, post: Partial<BlogPost> }) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return { id, changes: post };
-    },
-    onSuccess: ({ id, changes }) => {
-      queryClient.setQueryData(['blogPosts'], (old: BlogPost[] = []) => 
-        old.map(p => p.id === id ? { ...p, ...changes } : p)
-      );
-    }
-  });
-
-  const deleteBlogPostMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return id;
-    },
-    onSuccess: (id) => {
-      queryClient.setQueryData(['blogPosts'], (old: BlogPost[] = []) => 
-        old.filter(p => p.id !== id)
-      );
-    }
-  });
-
-  const addBlogPost = async (post: Omit<BlogPost, 'id' | 'date'>) => {
-    await addBlogPostMutation.mutateAsync(post);
-  };
-
-  const updateBlogPost = async (id: string, post: Partial<BlogPost>) => {
-    await updateBlogPostMutation.mutateAsync({ id, post });
-  };
-
-  const deleteBlogPost = async (id: string) => {
-    await deleteBlogPostMutation.mutateAsync(id);
-  };
-
-  // --- Product Mutations (Mocked) ---
+  // Product Mutations (Mock)
   const addProductMutation = useMutation({
-    mutationFn: async (product: Omit<Product, 'id'>) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newProduct: Product = {
-        ...product,
-        id: `prod_${Date.now()}`
-      };
-      return newProduct;
-    },
-    onSuccess: (newProduct) => {
-      queryClient.setQueryData(['products'], (old: Product[] = []) => [...old, newProduct]);
-    }
+      mutationFn: async (prod: Omit<Product, 'id'>) => {
+          await new Promise(r => setTimeout(r, 500));
+          return { ...prod, id: Date.now() } as Product;
+      },
+      onSuccess: (newProd) => {
+          queryClient.setQueryData(['products'], (old: Product[] = []) => [...old, newProd]);
+      }
   });
 
-  const updateProductMutation = useMutation({
-    mutationFn: async ({ id, product }: { id: string, product: Partial<Product> }) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return { id, changes: product };
-    },
-    onSuccess: ({ id, changes }) => {
-      queryClient.setQueryData(['products'], (old: Product[] = []) => 
-        old.map(p => p.id === id ? { ...p, ...changes } : p)
-      );
-    }
-  });
-
-  const deleteProductMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return id;
-    },
-    onSuccess: (id) => {
-      queryClient.setQueryData(['products'], (old: Product[] = []) => 
-        old.filter(p => p.id !== id)
-      );
-    }
-  });
-
-  const addProduct = async (product: Omit<Product, 'id'>) => {
-    await addProductMutation.mutateAsync(product);
+  const addProduct = async (prod: Omit<Product, 'id'>) => await addProductMutation.mutateAsync(prod);
+  const updateProduct = async (id: number, prod: Partial<Product>) => {
+       queryClient.setQueryData(['products'], (old: Product[] = []) => old.map(p => p.id === id ? {...p, ...prod} : p));
   };
-
-  const updateProduct = async (id: string, product: Partial<Product>) => {
-    await updateProductMutation.mutateAsync({ id, product });
-  };
-
-  const deleteProduct = async (id: string) => {
-    await deleteProductMutation.mutateAsync(id);
+  const deleteProduct = async (id: number) => {
+      queryClient.setQueryData(['products'], (old: Product[] = []) => old.filter(p => p.id !== id));
   };
 
   return (
@@ -362,6 +271,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       pages,
       blogPosts,
       products,
+      categories,
       currentTenant, 
       setLanguage, 
       setCurrency,
@@ -375,11 +285,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       updateProfile,
       switchTenant,
       t,
-      // Blog
       addBlogPost,
       updateBlogPost,
       deleteBlogPost,
-      // Product
       addProduct,
       updateProduct,
       deleteProduct

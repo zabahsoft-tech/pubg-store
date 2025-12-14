@@ -2,21 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { ProductCard } from '../components/ProductCard';
 import { useStore } from '../context/StoreContext';
 import { Product } from '../types';
-import { Gamepad2, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Gamepad2, ShoppingBag, ArrowRight, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const Home: React.FC = () => {
-  const { addToCart, t, blogPosts, products } = useStore();
+  const { addToCart, t, blogPosts, products, categories, language } = useStore();
   const [activeSlide, setActiveSlide] = useState(0);
 
-  // Filter products for sections using data from Context
-  const pubgProducts = products.filter(p => p.category === 'PUBG');
-  const imoProducts = products.filter(p => p.category === 'IMO');
-  const physicalProducts = products.filter(p => p.category === 'PHYSICAL');
+  const featuredBlogs = blogPosts.filter(b => b.is_featured && b.is_active);
 
-  const featuredBlogs = blogPosts.filter(b => b.isFeatured);
-
-  // Auto-rotate slider
   useEffect(() => {
     if (featuredBlogs.length === 0) return;
     const interval = setInterval(() => {
@@ -25,10 +19,9 @@ export const Home: React.FC = () => {
     return () => clearInterval(interval);
   }, [featuredBlogs.length]);
 
-  // Reusable Swiper Component
-  const ProductSwiper = ({ products }: { products: Product[] }) => (
+  const ProductSwiper = ({ items }: { items: Product[] }) => (
     <div className="flex overflow-x-auto pb-6 -mx-4 px-4 space-x-4 rtl:space-x-reverse snap-x snap-mandatory scrollbar-hide">
-      {products.map(p => (
+      {items.map(p => (
         <div key={p.id} className="min-w-[200px] md:min-w-[240px] snap-center">
           <ProductCard product={p} onSelect={addToCart} />
         </div>
@@ -48,13 +41,17 @@ export const Home: React.FC = () => {
               className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === activeSlide ? 'opacity-100' : 'opacity-0'}`}
             >
               <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/50 to-transparent z-10"></div>
-              <img src={blog.image} alt={blog.title} className="w-full h-full object-cover" />
+              <img src={blog.thumbnail} alt={language === 'fa' ? blog.fa_title : blog.en_title} className="w-full h-full object-cover" />
               
               <div className="absolute bottom-0 left-0 p-6 md:p-12 z-20 max-w-2xl rtl:right-0 rtl:left-auto">
-                <span className="inline-block px-3 py-1 bg-brand-500 text-white text-xs font-bold rounded-full mb-3">Featured</span>
-                <h2 className="text-2xl md:text-5xl font-bold text-white mb-2 md:mb-4 drop-shadow-lg leading-tight line-clamp-2">{blog.title}</h2>
-                <p className="text-gray-300 text-sm md:text-lg mb-4 md:mb-6 line-clamp-2 hidden md:block">{blog.excerpt}</p>
-                <Link to={`/blog/${blog.id}`} className="flex items-center space-x-2 text-brand-400 font-bold hover:text-brand-300 transition-colors">
+                <span className="inline-block px-3 py-1 bg-brand-500 text-white text-xs font-bold rounded-full mb-3">{t('featured_tag')}</span>
+                <h2 className="text-2xl md:text-5xl font-bold text-white mb-2 md:mb-4 drop-shadow-lg leading-tight line-clamp-2">
+                    {language === 'fa' ? blog.fa_title : blog.en_title}
+                </h2>
+                <p className="text-gray-300 text-sm md:text-lg mb-4 md:mb-6 line-clamp-2 hidden md:block">
+                    {language === 'fa' ? blog.fa_description : blog.en_description}
+                </p>
+                <Link to={`/blog/${blog.slug}`} className="flex items-center space-x-2 text-brand-400 font-bold hover:text-brand-300 transition-colors">
                   <span>{t('hero_read_more')}</span>
                   <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                 </Link>
@@ -62,7 +59,6 @@ export const Home: React.FC = () => {
             </div>
           ))}
           
-          {/* Slider Dots */}
           <div className="absolute bottom-6 right-6 z-30 flex space-x-2 rtl:left-6 rtl:right-auto">
             {featuredBlogs.map((_, idx) => (
               <button
@@ -75,36 +71,35 @@ export const Home: React.FC = () => {
         </section>
       )}
 
-      {/* Module 1: Digital Services */}
-      <section className="space-y-8">
-        <div className="flex items-center space-x-3 rtl:space-x-reverse border-b border-dark-700 pb-4">
-          <Gamepad2 className="w-6 h-6 text-brand-500" />
-          <h2 className="text-2xl font-bold text-white">{t('digital_section')}</h2>
-        </div>
+      {/* Dynamic Category Sections */}
+      {categories.map(category => {
+          const categoryProducts = products.filter(p => p.product_category_id === category.id);
+          
+          if (categoryProducts.length === 0) return null;
 
-        {/* PUBG Subsection */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-400 pl-2 border-l-4 border-brand-500 rtl:border-l-0 rtl:border-r-4 rtl:pr-2">{t('pubg_section')}</h3>
-          <ProductSwiper products={pubgProducts} />
-        </div>
+          const catName = language === 'fa' ? category.fa_name : category.en_name;
+          // Just a simple visual distinction for Physical vs Digital
+          const isPhysical = category.slug.includes('merch') || category.slug.includes('physical');
+          const Icon = isPhysical ? ShoppingBag : Gamepad2;
+          const iconColor = isPhysical ? 'text-purple-500' : 'text-brand-500';
+          const borderColor = isPhysical ? 'border-purple-500' : 'border-brand-500';
 
-        {/* IMO Subsection */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-400 pl-2 border-l-4 border-blue-500 rtl:border-l-0 rtl:border-r-4 rtl:pr-2">{t('imo_section')}</h3>
-          <ProductSwiper products={imoProducts} />
-        </div>
-      </section>
-
-      {/* Module 2: Physical Products */}
-      <section className="space-y-8">
-        <div className="flex items-center space-x-3 rtl:space-x-reverse border-b border-dark-700 pb-4">
-          <ShoppingBag className="w-6 h-6 text-purple-500" />
-          <h2 className="text-2xl font-bold text-white">{t('physical_section')}</h2>
-        </div>
-
-        <ProductSwiper products={physicalProducts} />
-      </section>
-
+          return (
+             <section key={category.id} className="space-y-6">
+                <div className="flex items-center space-x-3 rtl:space-x-reverse border-b border-dark-700 pb-4">
+                    <Icon className={`w-6 h-6 ${iconColor}`} />
+                    <h2 className="text-2xl font-bold text-white">{catName}</h2>
+                </div>
+                
+                <div className="space-y-4">
+                    <h3 className={`text-lg font-semibold text-gray-400 pl-2 border-l-4 rtl:border-l-0 rtl:border-r-4 rtl:pr-2 ${borderColor}`}>
+                       Best Sellers
+                    </h3>
+                    <ProductSwiper items={categoryProducts} />
+                </div>
+             </section>
+          );
+      })}
     </div>
   );
 };

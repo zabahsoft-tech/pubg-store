@@ -1,9 +1,9 @@
-import { Product, Coupon, User, BlogPost, Page, ExchangeRate } from './types';
+import { Coupon, User, BlogPost, Page, ExchangeRate, Product, ProductCategory, OrderProduct } from './types';
 
 // Exchange Rates (Base USD)
 export const EXCHANGE_RATES: ExchangeRate = {
   'USD': 1,
-  'AFN': 75 // Approx rate 1 USD = 75 Afghani
+  'AFN': 75 
 };
 
 // Operator Prefix Logic (Afghanistan)
@@ -28,9 +28,7 @@ export const TRANSLATIONS = {
     currency: "Currency",
     hero_read_more: "Read Article",
     digital_section: "Digital Services",
-    physical_section: "Gaming Gear & Merch",
-    pubg_section: "PUBG Mobile",
-    imo_section: "IMO Chat",
+    physical_section: "Physical Products",
     add_to_cart: "Add to Cart",
     checkout: "Checkout",
     cart_empty: "Your cart is empty",
@@ -102,9 +100,7 @@ export const TRANSLATIONS = {
     currency: "واحد پول",
     hero_read_more: "خواندن مقاله",
     digital_section: "خدمات دیجیتال",
-    physical_section: "تجهیزات گیمینگ",
-    pubg_section: "پابجی موبایل",
-    imo_section: "ایمو",
+    physical_section: "محصولات فیزیکی",
     add_to_cart: "افزودن به سبد",
     checkout: "تصفیه حساب",
     cart_empty: "سبد خرید خالی است",
@@ -167,13 +163,131 @@ export const TRANSLATIONS = {
   }
 };
 
+export const CATEGORIES: ProductCategory[] = [
+  {
+    id: 1,
+    en_name: 'PUBG Mobile',
+    fa_name: 'پابجی موبایل',
+    slug: 'pubg-mobile',
+    is_active: true
+  },
+  {
+    id: 2,
+    en_name: 'IMO Chat',
+    fa_name: 'ایمو',
+    slug: 'imo-chat',
+    is_active: true
+  },
+  {
+    id: 3,
+    en_name: 'Gaming Merch',
+    fa_name: 'تجهیزات گیمینگ',
+    slug: 'gaming-merch',
+    is_active: true
+  }
+];
+
+export const PRODUCTS: Product[] = [
+  // --- Digital: PUBG (Category 1) ---
+  {
+    id: 1,
+    en_name: 'PUBG Mobile 60 UC',
+    fa_name: 'پابجی موبایل ۶۰ یوسی',
+    product_category_id: 1,
+    price: 0.99,
+    discount: 0,
+    thumbnail: 'https://picsum.photos/seed/pubg1/400/400',
+    en_description: 'Get 60 Unknown Cash (UC) instantly delivered to your PUBG Mobile account.',
+    fa_description: 'دریافت ۶۰ یوسی برای حساب پابجی موبایل به صورت آنی.',
+    slug: 'pubg-mobile-60-uc',
+    is_featured: true,
+    is_active: true
+  },
+  {
+    id: 2,
+    en_name: 'PUBG Mobile 600 UC',
+    fa_name: 'پابجی موبایل ۶۰۰ یوسی',
+    product_category_id: 1,
+    price: 9.99,
+    discount: 0,
+    thumbnail: 'https://picsum.photos/seed/pubg3/400/400',
+    en_description: 'Top up 600 UC + Bonus. Perfect for the Elite Pass.',
+    fa_description: 'شارژ ۶۰۰ یوسی + پاداش. عالی برای الیت پس.',
+    slug: 'pubg-mobile-600-uc',
+    is_featured: false,
+    is_active: true
+  },
+  // --- Digital: IMO (Category 2) ---
+  {
+    id: 3,
+    en_name: 'IMO 40 Gems',
+    fa_name: 'ایمو ۴۰ الماس',
+    product_category_id: 2,
+    price: 0.99,
+    discount: 0,
+    thumbnail: 'https://picsum.photos/seed/imo1/400/400',
+    en_description: 'Purchase 40 IMO Gems to send gifts in chat rooms.',
+    fa_description: 'خرید ۴۰ الماس ایمو برای ارسال هدایا در چت روم‌ها.',
+    slug: 'imo-40-gems',
+    is_featured: false,
+    is_active: true
+  },
+  {
+    id: 4,
+    en_name: 'IMO 1000 Gems',
+    fa_name: 'ایمو ۱۰۰۰ الماس',
+    product_category_id: 2,
+    price: 19.99,
+    discount: 5,
+    thumbnail: 'https://picsum.photos/seed/imo3/400/400',
+    en_description: 'The ultimate gem pack. Get 1000 Gems with a discount.',
+    fa_description: 'بسته نهایی الماس. دریافت ۱۰۰۰ الماس با تخفیف.',
+    slug: 'imo-1000-gems',
+    is_featured: true,
+    is_active: true
+  },
+  // --- Physical (Category 3) ---
+  {
+    id: 5,
+    en_name: 'Rahat Gamer T-Shirt',
+    fa_name: 'تی‌شرت گیمر راحت',
+    product_category_id: 3,
+    price: 24.99,
+    discount: 0,
+    thumbnail: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=500',
+    en_description: '100% Cotton, Black, Size L. Official Rahat Pay limited edition.',
+    fa_description: '۱۰۰٪ نخ، مشکی، سایز بزرگ. نسخه محدود رسمی راحت پی.',
+    slug: 'rahat-gamer-tshirt',
+    is_featured: false,
+    is_active: true
+  },
+  {
+    id: 6,
+    en_name: 'Gaming Coffee Mug',
+    fa_name: 'لیوان قهوه گیمینگ',
+    product_category_id: 3,
+    price: 14.50,
+    discount: 0,
+    thumbnail: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&q=80&w=500',
+    en_description: 'Ceramic, Heat reactive. Level up your morning coffee.',
+    fa_description: 'سرامیکی، حساس به حرارت. قهوه صبحگاهی خود را ارتقا دهید.',
+    slug: 'gaming-coffee-mug',
+    is_featured: false,
+    is_active: true
+  }
+];
+
+export const VALID_COUPONS: Coupon[] = [
+  { id: 1, code: 'RAHAT10', discountType: 'PERCENTAGE', value: 10 }, 
+];
+
 export const MOCK_USER: User = {
   id: 'u_12345',
   name: 'Alex Gamer',
   email: 'alex@example.com',
   phoneNumber: '',
   emailVerified: true, 
-  isAdmin: true, // Super Admin permission
+  isAdmin: true,
   tenants: [
     { id: 't_personal', name: 'Personal Account', type: 'PERSONAL', balance: 150.00 },
     { id: 't_business', name: 'Pro Reseller', type: 'BUSINESS', balance: 2500.00 }
@@ -181,104 +295,36 @@ export const MOCK_USER: User = {
   orders: []
 };
 
-// CMS: Blog Posts (Featured ones appear in Slider)
+// CMS: Blog Posts
 export const BLOG_POSTS: BlogPost[] = [
   {
-    id: 'b1',
-    title: 'New Season: PUBG Mobile Update',
-    excerpt: 'Check out the latest skins and maps available in the new update.',
-    content: 'The new season of PUBG Mobile is here! Experience the thrill of the new "Frost Festival" map mode, exclusive winter-themed skins, and weapon balancing updates. The developers have listened to community feedback and adjusted the recoil patterns for the M416 and Beryl M762. Jump in now and claim your rewards.',
-    image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=2070',
-    isFeatured: true,
-    date: '2024-03-10'
+    id: 1,
+    slug: 'pubg-mobile-update',
+    en_title: 'New Season: PUBG Mobile Update',
+    fa_title: 'فصل جدید: بروزرسانی پابجی موبایل',
+    en_description: 'The new season of PUBG Mobile is here!',
+    fa_description: 'فصل جدید پابجی موبایل از راه رسید!',
+    thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=2070',
+    is_featured: true,
+    is_active: true,
+    created_at: '2024-03-10'
   },
   {
-    id: 'b2',
-    title: 'Rahat Pay Exclusive: Merch Drop',
-    excerpt: 'Get your hands on limited edition hoodies and gaming accessories.',
-    content: 'We are excited to announce our first-ever physical merchandise drop! Featuring high-quality cotton hoodies, mechanical keyboards, and precision gaming mice. All items are designed with the Rahat Pay aesthetic in mind. Limited stock available, so order quickly before they run out.',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=1999',
-    isFeatured: true,
-    date: '2024-03-12'
+    id: 2,
+    slug: 'rahat-pay-merch',
+    en_title: 'Rahat Pay Exclusive: Merch Drop',
+    fa_title: 'محصولات انحصاری راحت پی: عرضه جدید',
+    en_description: 'We are excited to announce our first-ever physical merchandise drop!',
+    fa_description: 'ما با هیجان اولین عرضه محصولات فیزیکی خود را اعلام می‌کنیم!',
+    thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=1999',
+    is_featured: true,
+    is_active: true,
+    created_at: '2024-03-12'
   }
 ];
 
-// CMS: Dynamic Pages
 export const DYNAMIC_PAGES: Page[] = [
   { id: 'p1', slug: 'terms', title: 'Terms of Service', content: 'Terms content...', showInFooter: true },
   { id: 'p2', slug: 'privacy', title: 'Privacy Policy', content: 'Privacy content...', showInFooter: true },
   { id: 'p3', slug: 'about', title: 'About Us', content: 'About content...', showInFooter: true },
-];
-
-export const PRODUCTS: Product[] = [
-  // --- Digital: PUBG ---
-  {
-    id: 'pubg_60',
-    name: 'PUBG Mobile UC',
-    category: 'PUBG',
-    amount: '60 UC',
-    price: 0.99,
-    image: 'https://picsum.photos/seed/pubg1/200/200',
-    longDescription: 'Get 60 Unknown Cash (UC) instantly delivered to your PUBG Mobile account. Use UC to purchase battle passes, skins, and crates.',
-    features: ['Instant Delivery', 'Global Region Support', 'Safe & Secure'],
-    isFeatured: true
-  },
-  {
-    id: 'pubg_600',
-    name: 'PUBG Mobile UC',
-    category: 'PUBG',
-    amount: '600 UC',
-    price: 9.99,
-    image: 'https://picsum.photos/seed/pubg3/200/200',
-    longDescription: 'Top up 600 UC + Bonus. Perfect for the Elite Pass. Experience the battlefield with premium outfits and weapon skins.',
-    features: ['Instant Delivery', 'Includes Bonus UC', 'Elite Pass Ready']
-  },
-  // --- Digital: IMO ---
-  {
-    id: 'imo_40',
-    name: 'IMO Gems',
-    category: 'IMO',
-    amount: '40 Gems',
-    price: 0.99,
-    image: 'https://picsum.photos/seed/imo1/200/200',
-    longDescription: 'Purchase 40 IMO Gems to send gifts and stickers to your friends and family in chat rooms.',
-    features: ['Direct Top-up', 'No Login Required', '24/7 Support']
-  },
-  {
-    id: 'imo_1000',
-    name: 'IMO Gems',
-    category: 'IMO',
-    amount: '1000 Gems',
-    bonus: 'Best Value',
-    price: 19.99,
-    image: 'https://picsum.photos/seed/imo3/200/200',
-    longDescription: 'The ultimate gem pack for power users. Get 1000 Gems plus exclusive bonuses. Become a VIP in your favorite chat rooms.',
-    features: ['Best Value', 'Instant Credit', 'Secure Payment'],
-    isFeatured: true
-  },
-  // --- Physical Products ---
-  {
-    id: 'phys_tshirt',
-    name: 'Rahat Gamer T-Shirt',
-    category: 'PHYSICAL',
-    description: '100% Cotton, Black, Size L',
-    longDescription: 'Official Rahat Pay limited edition gamer tee. Made from 100% premium combed cotton with a high-quality screen print that does not fade.',
-    features: ['100% Cotton', 'Unisex Fit', 'Machine Washable', 'Limited Edition'],
-    price: 24.99,
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=500',
-  },
-  {
-    id: 'phys_mug',
-    name: 'Gaming Coffee Mug',
-    category: 'PHYSICAL',
-    description: 'Ceramic, Heat reactive',
-    longDescription: 'Level up your morning coffee with this heat-reactive gaming mug. The design changes when hot liquid is poured in.',
-    features: ['Ceramic Material', 'Heat Reactive Color Change', '11oz Capacity', 'Dishwasher Safe'],
-    price: 14.50,
-    image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&q=80&w=500',
-  }
-];
-
-export const VALID_COUPONS: Coupon[] = [
-  { code: 'RAHAT10', discountType: 'PERCENTAGE', value: 10 }, 
 ];

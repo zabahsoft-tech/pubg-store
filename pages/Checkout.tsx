@@ -10,7 +10,7 @@ import { Coupon, PaymentMethod } from '../types';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { cart, removeFromCart, processCheckout, t, convertPrice, currentTenant } = useStore();
+  const { cart, removeFromCart, processCheckout, t, convertPrice, currentTenant, language, categories } = useStore();
   
   // Conditional Form State
   const [playerId, setPlayerId] = useState('');
@@ -26,9 +26,13 @@ export const Checkout: React.FC = () => {
   const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Analyze Cart Content
-  const hasPubg = cart.some(i => i.category === 'PUBG');
-  const hasImo = cart.some(i => i.category === 'IMO');
-  const hasPhysical = cart.some(i => i.category === 'PHYSICAL');
+  // We need to check categories of items in cart
+  // 1: PUBG, 2: IMO, 3: Gaming Merch (Based on Mock Data, dynamic in real world)
+  const cartCategoryIds = new Set(cart.map(c => c.product_category_id));
+  
+  const hasPubg = cartCategoryIds.has(1); // Assuming ID 1 is PUBG
+  const hasImo = cartCategoryIds.has(2);  // Assuming ID 2 is IMO
+  const hasPhysical = cartCategoryIds.has(3); // Assuming ID 3 is Physical
 
   // Calculations
   const totalUSD = cart.reduce((sum, item) => sum + item.price, 0);
@@ -82,10 +86,12 @@ export const Checkout: React.FC = () => {
     setIsProcessing(true);
     
     try {
-        // Pass data to store to handle the splitting logic
         await processCheckout(
-            { playerId: hasPubg ? playerId : undefined, phone: hasImo ? phone : undefined },
-            { address: hasPhysical ? address : undefined },
+            { 
+               playerId: hasPubg ? playerId : undefined, 
+               phone: hasImo ? phone : undefined,
+               address: hasPhysical ? address : undefined 
+            },
             paymentMethod
         );
         navigate('/dashboard');
@@ -116,23 +122,27 @@ export const Checkout: React.FC = () => {
         <div className="bg-dark-800 rounded-xl p-6 border border-dark-700">
           <h2 className="text-lg font-semibold text-white mb-4">{t('cart_items')} ({cart.length})</h2>
           <div className="space-y-4">
-            {cart.map((item) => (
-              <div key={item.cartId} className="flex items-center justify-between bg-dark-900/50 p-3 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <img src={item.image} alt={item.name} className="w-10 h-10 rounded object-cover" />
-                  <div>
-                    <div className="text-sm font-bold text-white">{item.name}</div>
-                    <div className="text-xs text-gray-400">{item.amount || item.description}</div>
-                  </div>
+            {cart.map((item) => {
+              const name = language === 'fa' ? item.fa_name : item.en_name;
+              const img = item.thumbnail || 'https://picsum.photos/100';
+              return (
+                <div key={item.cartId} className="flex items-center justify-between bg-dark-900/50 p-3 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                    <img src={img} alt={name} className="w-10 h-10 rounded object-cover" />
+                    <div>
+                        <div className="text-sm font-bold text-white">{name}</div>
+                        <div className="text-xs text-gray-400">{convertPrice(item.price)}</div>
+                    </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                    <span className="text-white font-mono">{convertPrice(item.price)}</span>
+                    <button onClick={() => removeFromCart(item.cartId)} className="text-red-500 hover:text-red-400">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                    </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <span className="text-white font-mono">{convertPrice(item.price)}</span>
-                  <button onClick={() => removeFromCart(item.cartId)} className="text-red-500 hover:text-red-400">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
