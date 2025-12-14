@@ -49,7 +49,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [language, setLanguage] = useState<Language>('en');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [currentTenantId, setCurrentTenantId] = useState<string>('');
-  const [pages] = useState<Page[]>(DYNAMIC_PAGES);
 
   // --- React Query Data Fetching ---
 
@@ -71,6 +70,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     queryKey: ['products'],
     queryFn: api.getProducts,
     initialData: PRODUCTS,
+  });
+
+  // 4. Fetch Pages (Dynamic)
+  const { data: pages = DYNAMIC_PAGES } = useQuery({
+    queryKey: ['pages'],
+    queryFn: () => api.getPages(),
+    initialData: DYNAMIC_PAGES
   });
 
   // Derived State

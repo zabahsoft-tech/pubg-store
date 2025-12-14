@@ -1,5 +1,5 @@
-import { User, Product, Transaction, BlogPost } from '../types';
-import { MOCK_USER, PRODUCTS, BLOG_POSTS } from '../constants';
+import { User, Product, Transaction, BlogPost, Page } from '../types';
+import { MOCK_USER, PRODUCTS, BLOG_POSTS, DYNAMIC_PAGES } from '../constants';
 
 /**
  * API CONFIGURATION
@@ -72,6 +72,38 @@ export const api = {
       return BLOG_POSTS;
     }
     return apiRequest<BlogPost[]>('/posts');
+  },
+
+  /**
+   * Fetch Dynamic Pages
+   * GET /api/pages
+   * GET /api/pages?featured=1
+   */
+  getPages: async (featured?: boolean): Promise<Page[]> => {
+    if (USE_MOCK_DATA) {
+       await new Promise(r => setTimeout(r, 600));
+       if (featured) {
+         // Mock logic: return pages marked for footer as "featured" for this example
+         return DYNAMIC_PAGES.filter(p => p.showInFooter);
+       }
+       return DYNAMIC_PAGES;
+    }
+    const query = featured ? '?featured=1' : '';
+    return apiRequest<Page[]>(`/pages${query}`);
+  },
+
+  /**
+   * Fetch Single Page
+   * GET /api/pages/{slug}
+   */
+  getPage: async (slug: string): Promise<Page> => {
+     if (USE_MOCK_DATA) {
+        await new Promise(r => setTimeout(r, 400));
+        const page = DYNAMIC_PAGES.find(p => p.slug === slug);
+        if (!page) throw new Error('Page not found');
+        return page;
+     }
+     return apiRequest<Page>(`/pages/${slug}`);
   },
 
   /**
