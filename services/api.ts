@@ -1,5 +1,5 @@
 
-import { User, Product, ProductCategory, OrderProduct, Wallet, WalletTransaction, BlogPost, Page, Coupon } from '../types';
+import { User, Product, ProductCategory, OrderProduct, Wallet, WalletTransaction, BlogPost, Page, Coupon, LoginCredentials, RegisterData, AuthResponse } from '../types';
 
 /**
  * API CONFIGURATION
@@ -29,10 +29,18 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'include', // Enable cookie-based session auth
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    
+    // Handle Unauthenticated
+    if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        // We do not auto-redirect here to avoid loops, purely clear state
+    }
+
     throw new Error(errorData.message || `API Request Failed: ${response.status}`);
   }
 
@@ -42,6 +50,28 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 }
 
 export const api = {
+
+  // --- Auth ---
+  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+      // Assuming Laravel Sanctum /login endpoint returning { token, user }
+      const response = await apiRequest<any>('/login', {
+          method: 'POST',
+          body: JSON.stringify(credentials)
+      });
+      return response.data || response;
+  },
+
+  register: async (data: RegisterData): Promise<AuthResponse> => {
+      const response = await apiRequest<any>('/register', {
+          method: 'POST',
+          body: JSON.stringify(data)
+      });
+      return response.data || response;
+  },
+
+  logout: async (): Promise<void> => {
+      return apiRequest('/logout', { method: 'POST' });
+  },
 
   // --- User ---
   getUser: async (): Promise<User> => {

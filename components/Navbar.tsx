@@ -1,12 +1,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { Wallet, Menu, UserCircle, Globe, ShoppingCart, ChevronDown, Building2, Store, Newspaper, LogOut, LayoutDashboard, User, Smartphone, ShieldCheck } from 'lucide-react';
+import { Wallet, Menu, UserCircle, Globe, ShoppingCart, ChevronDown, Building2, Store, Newspaper, LogOut, LayoutDashboard, User, Smartphone, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
+import { Button } from './ui/Button';
 
 export const Navbar: React.FC = () => {
-  const { user, cart, language, setLanguage, currency, setCurrency, currentTenant, switchTenant, wallet, t } = useStore();
+  const { user, isAuthenticated, cart, language, setLanguage, currency, setCurrency, currentTenant, switchTenant, wallet, t, logout } = useStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isTenantOpen, setIsTenantOpen] = useState(false);
   const [isUserOpen, setIsUserOpen] = useState(false);
   
@@ -17,6 +19,12 @@ export const Navbar: React.FC = () => {
 
   const toggleLanguage = () => setLanguage(language === 'en' ? 'fa' : 'en');
   const toggleCurrency = () => setCurrency(currency === 'USD' ? 'AFN' : 'USD');
+
+  const handleLogout = () => {
+      logout();
+      window.location.href = 'https://dashboard.rahatpay.com/admin/login';
+      setIsUserOpen(false);
+  };
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -95,15 +103,17 @@ export const Navbar: React.FC = () => {
             {/* Right Actions */}
             <div className="flex items-center space-x-3 rtl:space-x-reverse">
               
-              {/* Wallet Pill */}
-              <div className="hidden sm:flex items-center bg-dark-800 rounded-full border border-dark-700 p-1 pr-4 rtl:pl-4 rtl:pr-1">
-                 <div className="flex items-center space-x-2 pl-2 rtl:pr-2 rtl:pl-0 text-emerald-400">
-                    <Wallet className="w-3.5 h-3.5" />
-                    <span className="text-xs font-bold font-mono">
-                      {currency === 'USD' ? `$${displayBalance.toLocaleString()}` : `${Math.floor(displayBalance * 75).toLocaleString()} ؋`}
-                    </span>
-                 </div>
-              </div>
+              {/* Wallet Pill (Auth Only) */}
+              {isAuthenticated && (
+                <div className="hidden sm:flex items-center bg-dark-800 rounded-full border border-dark-700 p-1 pr-4 rtl:pl-4 rtl:pr-1">
+                   <div className="flex items-center space-x-2 pl-2 rtl:pr-2 rtl:pl-0 text-emerald-400">
+                      <Wallet className="w-3.5 h-3.5" />
+                      <span className="text-xs font-bold font-mono">
+                        {currency === 'USD' ? `$${displayBalance.toLocaleString()}` : `${Math.floor(displayBalance * 75).toLocaleString()} ؋`}
+                      </span>
+                   </div>
+                </div>
+              )}
 
               {/* Utilities */}
               <div className="flex items-center space-x-1 bg-dark-800 rounded-full p-1 border border-dark-700">
@@ -126,77 +136,96 @@ export const Navbar: React.FC = () => {
               </Link>
               
               {/* User Avatar Dropdown */}
-              <div className="relative" ref={userRef}>
-                <button 
-                  onClick={() => setIsUserOpen(!isUserOpen)}
-                  className="w-10 h-10 rounded-full border-2 border-dark-700 hover:border-brand-500 transition-colors overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-500/50"
-                >
-                  <div className={`w-full h-full flex items-center justify-center bg-dark-800 ${user.emailVerified ? 'text-brand-400' : 'text-gray-400'}`}>
-                     <UserCircle className="w-full h-full p-0.5" />
+              {isAuthenticated && user ? (
+                  <div className="relative" ref={userRef}>
+                    <button 
+                      onClick={() => setIsUserOpen(!isUserOpen)}
+                      className="w-10 h-10 rounded-full border-2 border-dark-700 hover:border-brand-500 transition-colors overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+                    >
+                      <div className={`w-full h-full flex items-center justify-center bg-dark-800 ${user.emailVerified ? 'text-brand-400' : 'text-gray-400'}`}>
+                         <UserCircle className="w-full h-full p-0.5" />
+                      </div>
+                    </button>
+    
+                    {isUserOpen && (
+                      <div className="absolute right-0 mt-3 w-60 bg-dark-800 rounded-2xl shadow-2xl border border-dark-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                         {/* User Header */}
+                         <div className="p-5 border-b border-dark-700 bg-dark-800/50">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500">
+                                <User className="w-6 h-6" />
+                              </div>
+                              <div>
+                                 <p className="text-white font-bold text-sm truncate max-w-[140px]">{user.name}</p>
+                                 <p className="text-xs text-gray-500 truncate max-w-[140px]">{user.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center text-xs">
+                              <span className={`flex items-center px-2 py-0.5 rounded-md ${user.emailVerified ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                                 {user.emailVerified ? '✅ Verified' : '⚠️ Unverified'}
+                              </span>
+                            </div>
+                         </div>
+                         
+                         {/* Menu Items */}
+                         <div className="p-2 space-y-1">
+                            {user.isAdmin && (
+                              <Link 
+                                to="/admin" 
+                                onClick={() => setIsUserOpen(false)}
+                                className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-yellow-400 hover:bg-dark-700 hover:text-yellow-300 transition-colors bg-yellow-500/5"
+                              >
+                                 <span className="p-1.5 bg-yellow-500/10 rounded-lg"><ShieldCheck className="w-4 h-4" /></span>
+                                 <span>{t('nav_admin')} 🛠️</span>
+                              </Link>
+                            )}
+                            <Link 
+                              to="/dashboard" 
+                              onClick={() => setIsUserOpen(false)}
+                              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
+                            >
+                               <span className="p-1.5 bg-blue-500/10 rounded-lg text-blue-400"><LayoutDashboard className="w-4 h-4" /></span>
+                               <span>{t('nav_dashboard')} 📊</span>
+                            </Link>
+                            
+                            <Link 
+                              to="/profile" 
+                              onClick={() => setIsUserOpen(false)}
+                              className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
+                            >
+                               <span className="p-1.5 bg-purple-500/10 rounded-lg text-purple-400"><UserCircle className="w-4 h-4" /></span>
+                               <span>{t('profile_title')} 👤</span>
+                            </Link>
+                         </div>
+    
+                         {/* Footer Actions */}
+                         <div className="p-2 border-t border-dark-700">
+                            <button onClick={handleLogout} className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+                               <LogOut className="w-4 h-4" />
+                               <span>{t('sign_out')} 🚪</span>
+                            </button>
+                         </div>
+                      </div>
+                    )}
                   </div>
-                </button>
-
-                {isUserOpen && (
-                  <div className="absolute right-0 mt-3 w-60 bg-dark-800 rounded-2xl shadow-2xl border border-dark-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-right">
-                     {/* User Header */}
-                     <div className="p-5 border-b border-dark-700 bg-dark-800/50">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500">
-                            <User className="w-6 h-6" />
-                          </div>
-                          <div>
-                             <p className="text-white font-bold text-sm truncate max-w-[140px]">{user.name}</p>
-                             <p className="text-xs text-gray-500 truncate max-w-[140px]">{user.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center text-xs">
-                          <span className={`flex items-center px-2 py-0.5 rounded-md ${user.emailVerified ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
-                             {user.emailVerified ? '✅ Verified' : '⚠️ Unverified'}
-                          </span>
-                        </div>
-                     </div>
-                     
-                     {/* Menu Items */}
-                     <div className="p-2 space-y-1">
-                        {user.isAdmin && (
-                          <Link 
-                            to="/admin" 
-                            onClick={() => setIsUserOpen(false)}
-                            className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-yellow-400 hover:bg-dark-700 hover:text-yellow-300 transition-colors bg-yellow-500/5"
-                          >
-                             <span className="p-1.5 bg-yellow-500/10 rounded-lg"><ShieldCheck className="w-4 h-4" /></span>
-                             <span>{t('nav_admin')} 🛠️</span>
-                          </Link>
-                        )}
-                        <Link 
-                          to="/dashboard" 
-                          onClick={() => setIsUserOpen(false)}
-                          className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
-                        >
-                           <span className="p-1.5 bg-blue-500/10 rounded-lg text-blue-400"><LayoutDashboard className="w-4 h-4" /></span>
-                           <span>{t('nav_dashboard')} 📊</span>
-                        </Link>
-                        
-                        <Link 
-                          to="/profile" 
-                          onClick={() => setIsUserOpen(false)}
-                          className="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
-                        >
-                           <span className="p-1.5 bg-purple-500/10 rounded-lg text-purple-400"><UserCircle className="w-4 h-4" /></span>
-                           <span>{t('profile_title')} 👤</span>
-                        </Link>
-                     </div>
-
-                     {/* Footer Actions */}
-                     <div className="p-2 border-t border-dark-700">
-                        <button className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors">
-                           <LogOut className="w-4 h-4" />
-                           <span>{t('sign_out')} 🚪</span>
-                        </button>
-                     </div>
+              ) : (
+                  // Guest State
+                  <div className="flex items-center space-x-2">
+                     <a href="https://dashboard.rahatpay.com/admin/login">
+                        <Button size="sm" variant="secondary" className="hidden sm:flex">
+                           <LogIn className="w-4 h-4 mr-2" /> Sign In
+                        </Button>
+                     </a>
+                     <a href="https://dashboard.rahatpay.com/admin/register">
+                        <Button size="sm" variant="primary" className="hidden sm:flex">
+                           <UserPlus className="w-4 h-4 mr-2" /> Register
+                        </Button>
+                     </a>
+                     <a href="https://dashboard.rahatpay.com/admin/login" className="sm:hidden p-2 text-gray-400 hover:text-white">
+                        <LogIn className="w-6 h-6" />
+                     </a>
                   </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>

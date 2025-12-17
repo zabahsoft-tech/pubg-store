@@ -1,12 +1,14 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Product, ProductCategory, Language, Tenant, Currency, CartItem, OrderProduct, Page, BlogPost, PaymentMethod, Wallet, WalletTransaction, Coupon } from '../types';
+import { User, Product, ProductCategory, Language, Tenant, Currency, CartItem, OrderProduct, Page, BlogPost, PaymentMethod, Wallet, WalletTransaction, Coupon, LoginCredentials, RegisterData } from '../types';
 import { TRANSLATIONS, EXCHANGE_RATES } from '../constants';
 import { api } from '../services/api';
 
 interface StoreContextType {
-  user: User;
+  user: User | null;
+  isAuthenticated: boolean;
+  isAuthLoading: boolean;
   cart: CartItem[];
   language: Language;
   currency: Currency;
@@ -24,6 +26,12 @@ interface StoreContextType {
   removeFromCart: (cartId: string) => void;
   clearCart: () => void;
   convertPrice: (priceUSD: number) => string;
+  
+  // Auth
+  login: (credentials: LoginCredentials) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+
   processCheckout: (
     metaData: { playerId?: string, phone?: string, address?: string },
     paymentMethod: PaymentMethod
@@ -36,11 +44,10 @@ interface StoreContextType {
   switchTenant: (tenantId: string) => void;
   t: (key: string) => string;
   
-  // Blog Actions (Client side mutation wrappers for admin)
+  // Admin Actions
   addBlogPost: (post: Omit<BlogPost, 'id' | 'created_at'>) => Promise<BlogPost>;
   updateBlogPost: (id: number, post: Partial<BlogPost>) => Promise<void>;
   deleteBlogPost: (id: number) => Promise<void>;
-  // Product Actions (Admin)
   addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
   updateProduct: (id: number, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
@@ -48,20 +55,9 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Guest User Fallback
-const GUEST_USER: User = {
-    id: 'guest',
-    name: 'Guest User',
-    email: '',
-    emailVerified: false,
-    isAdmin: false,
-    tenants: [],
-    orders: [],
-    wallet: undefined
-};
-
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
+  const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
   
   // Local State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -81,47 +77,89 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return data || fallback;
   };
 
-  // --- React Query Data Fetching ---
-
-  // 1. Fetch User
-  const { data: userData } = useQuery({
-    queryKey: ['user'],
+  // --- Auth & User ---
+  // We attempt to fetch user even without token to check for session cookies
+  const { data: userData, isError, isLoading: isUserQueryLoading } = useQuery({
+    queryKey: ['user'], 
     queryFn: api.getUser,
     retry: false,
   });
-  const user = safeObject<User>(userData, GUEST_USER);
 
-  // 2. Fetch Wallet
+  const user = (!isError) ? safeObject<User | null>(userData, null) : null;
+  const isAuthenticated = !!user;
+  const isAuthLoading = isUserQueryLoading;
+
+  // Sync token state if API fails (401)
+  useEffect(() => {
+      if (isError) {
+          localStorage.removeItem('auth_token');
+          setToken(null);
+      }
+  }, [isError]);
+
+  const login = async (credentials: LoginCredentials) => {
+      const response = await api.login(credentials);
+      const newToken = response.token;
+      if (newToken) {
+          localStorage.setItem('auth_token', newToken);
+          setToken(newToken);
+      }
+      queryClient.setQueryData(['user'], response.user);
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+  };
+
+  const register = async (data: RegisterData) => {
+      const response = await api.register(data);
+      const newToken = response.token;
+      if (newToken) {
+          localStorage.setItem('auth_token', newToken);
+          setToken(newToken);
+      }
+      queryClient.setQueryData(['user'], response.user);
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+  };
+
+  const logout = async () => {
+      try {
+        await api.logout();
+      } catch (e) {
+        console.error("Logout error", e);
+      } finally {
+        localStorage.removeItem('auth_token');
+        setToken(null);
+        queryClient.clear();
+        queryClient.invalidateQueries();
+      }
+  };
+
+  // --- Data Fetching (Protected) ---
   const { data: walletData } = useQuery({
     queryKey: ['wallet'],
     queryFn: api.getWallet,
-    enabled: !!user.id && user.id !== 'guest',
+    enabled: isAuthenticated,
   });
   const wallet = safeObject<Wallet | null>(walletData, null);
 
-  // 3. Fetch Wallet Transactions
   const { data: transactionsData } = useQuery({
     queryKey: ['transactions'],
     queryFn: api.getWalletTransactions,
-    enabled: !!user.id && user.id !== 'guest',
+    enabled: isAuthenticated,
   });
   const transactions = safeArray<WalletTransaction>(transactionsData, []);
 
-  // 4. Fetch Products
+  // --- Data Fetching (Public) ---
   const { data: productsData } = useQuery({
     queryKey: ['products'],
     queryFn: api.getProducts,
   });
   const products = safeArray<Product>(productsData, []);
 
-  // 5. Fetch Categories
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: api.getCategories,
   });
   const categories = safeArray<ProductCategory>(categoriesData, []);
 
-  // 6. Fetch Pages and Blog
   const { data: pagesData } = useQuery({ queryKey: ['pages'], queryFn: () => api.getPages() });
   const pages = safeArray<Page>(pagesData, []);
 
@@ -130,7 +168,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Derived State
   useEffect(() => {
-    if (user.tenants && user.tenants.length > 0 && !currentTenantId) {
+    if (user && user.tenants && user.tenants.length > 0 && !currentTenantId) {
       setCurrentTenantId(user.tenants[0].id);
     }
   }, [user, currentTenantId]);
@@ -140,8 +178,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     document.documentElement.lang = language;
   }, [language]);
 
-  // Construct current tenant but override balance with wallet if available
-  const baseTenant = user.tenants?.find(t => t.id === currentTenantId) || user.tenants?.[0] || { id: 'default', name: 'Default', type: 'PERSONAL', balance: 0 };
+  // Tenant Logic
+  const baseTenant = user?.tenants?.find(t => t.id === currentTenantId) || user?.tenants?.[0] || { id: 'default', name: 'Default', type: 'PERSONAL', balance: 0 };
   const currentTenant: Tenant = {
     ...baseTenant,
     balance: wallet ? wallet.balance : baseTenant.balance || 0
@@ -191,14 +229,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     await creditWalletMutation.mutateAsync({ amount, pm_type });
   };
 
-  // Checkout Mutation - Creates OrderProducts
   const checkoutMutation = useMutation({
     mutationFn: async ({ metaData, paymentMethod }: { metaData: any, paymentMethod: PaymentMethod }) => {
-      // Logic handled mostly by backend now, but we iterate cart items to create orders
-      // In a real app, you might send the whole cart to one endpoint '/orders', but here we use createOrderProduct loop as per existing structure
-      // or assuming backend handles bulk.
-      // Based on provided API, we have `createOrderProduct`.
-      
       const results = [];
       for (const item of cart) {
           const order = await api.createOrderProduct({
@@ -206,14 +238,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               pm_type: paymentMethod.toLowerCase(),
               quantity: 1, 
               total_price: item.price,
-              // metadata could be passed if API supports it, likely needs a custom field or comment
           });
           results.push(order);
       }
       return results;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] }); // Refresh user orders
+      queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       clearCart();
@@ -243,7 +274,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   });
   const updateProfile = async (data: Partial<User>) => await updateProfileMutation.mutateAsync(data);
 
-  // --- New API wrappers ---
   const validateCoupon = async (code: string) => {
       return await api.validateCoupon(code);
   };
@@ -254,29 +284,19 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return res;
   };
 
-  // Blog & Product Mutations (Placeholder/mocked logic removed or kept minimal if backend endpoints exist for these)
-  // Since api.php didn't show DELETE/PUT for blogs/products explicitly for admin (except maybe standard resource controllers), 
-  // we will assume they exist or keep simple state updates if admin API is not fully provided.
-  // The provided API list had GET for products/blogs. 
-  // We'll leave these as placeholders that would call API if implemented.
-
-  const addBlogPost = async (post: Omit<BlogPost, 'id' | 'created_at'>) => {
-      // const res = await apiRequest('/blogs', { method: 'POST', body: JSON.stringify(post) });
-      // return res;
-      return {} as BlogPost; // Placeholder
-  };
+  // Mock wrappers for actions that require backend implementation of admin routes
+  const addBlogPost = async (post: Omit<BlogPost, 'id' | 'created_at'>) => { return {} as BlogPost; };
   const updateBlogPost = async (id: number, post: Partial<BlogPost>) => {};
   const deleteBlogPost = async (id: number) => {};
-
-  const addProduct = async (prod: Omit<Product, 'id'>) => {
-       return {} as Product;
-  };
+  const addProduct = async (prod: Omit<Product, 'id'>) => { return {} as Product; };
   const updateProduct = async (id: number, prod: Partial<Product>) => {};
   const deleteProduct = async (id: number) => {};
 
   return (
     <StoreContext.Provider value={{ 
       user, 
+      isAuthenticated,
+      isAuthLoading,
       cart, 
       language, 
       currency,
@@ -293,6 +313,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       removeFromCart,
       clearCart,
       convertPrice,
+      login,
+      register,
+      logout,
       processCheckout, 
       creditWallet,
       validateCoupon,

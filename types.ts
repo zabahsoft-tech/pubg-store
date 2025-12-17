@@ -8,6 +8,24 @@ export interface ExchangeRate {
   [key: string]: number;
 }
 
+// Auth Types
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
+
 // Laravel ProductCategory Model
 export interface ProductCategory {
   id: number;

@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
@@ -66,6 +67,27 @@ const ScrollToTop = () => {
   return null;
 };
 
+// Protected Route Wrapper
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { isAuthenticated, isAuthLoading } = useStore();
+    
+    if (isAuthLoading) {
+        return (
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+          </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        // Redirect to external login if not authenticated
+        window.location.href = "https://dashboard.rahatpay.com/admin/login";
+        return null;
+    }
+    
+    return <>{children}</>;
+};
+
 const App: React.FC = () => {
   return (
     <StoreProvider>
@@ -73,31 +95,51 @@ const App: React.FC = () => {
         <ScrollToTop />
         <Layout>
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/product/:id" element={<ProductDetails />} />
-            
-            {/* Public Blog Routes */}
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/:id" element={<BlogPostPage />} />
-            
-            {/* Dynamic Page Routes */}
             <Route path="/page/:slug" element={<PageViewer />} />
             
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/mobile-topup" element={<MobileTopUp />} />
+            {/* Secure Service Routes */}
+            <Route path="/dashboard" element={
+                <ProtectedRoute><Dashboard /></ProtectedRoute>
+            } />
+            <Route path="/checkout" element={
+                <ProtectedRoute><Checkout /></ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+                <ProtectedRoute><Profile /></ProtectedRoute>
+            } />
+            <Route path="/mobile-topup" element={
+                <ProtectedRoute><MobileTopUp /></ProtectedRoute>
+            } />
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminDashboard />} />
+            {/* Admin Routes (Backend will also enforce check) */}
+            <Route path="/admin" element={
+                <ProtectedRoute><AdminDashboard /></ProtectedRoute>
+            } />
             
-            <Route path="/admin/blogs" element={<BlogManager />} />
-            <Route path="/admin/blogs/new" element={<BlogEditor />} />
-            <Route path="/admin/blogs/:id/edit" element={<BlogEditor />} />
+            <Route path="/admin/blogs" element={
+                <ProtectedRoute><BlogManager /></ProtectedRoute>
+            } />
+            <Route path="/admin/blogs/new" element={
+                <ProtectedRoute><BlogEditor /></ProtectedRoute>
+            } />
+            <Route path="/admin/blogs/:id/edit" element={
+                <ProtectedRoute><BlogEditor /></ProtectedRoute>
+            } />
             
-            <Route path="/admin/products" element={<ProductManager />} />
-            <Route path="/admin/products/new" element={<ProductEditor />} />
-            <Route path="/admin/products/:id/edit" element={<ProductEditor />} />
+            <Route path="/admin/products" element={
+                <ProtectedRoute><ProductManager /></ProtectedRoute>
+            } />
+            <Route path="/admin/products/new" element={
+                <ProtectedRoute><ProductEditor /></ProtectedRoute>
+            } />
+            <Route path="/admin/products/:id/edit" element={
+                <ProtectedRoute><ProductEditor /></ProtectedRoute>
+            } />
 
           </Routes>
         </Layout>
