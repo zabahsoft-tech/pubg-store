@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
@@ -5,12 +6,12 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { StripePaymentForm } from '../components/StripePaymentForm';
 import { ShieldCheck, User, MapPin, Smartphone, Trash2, Tag, Check, X, Wallet, CreditCard, AlertCircle } from 'lucide-react';
-import { VALID_COUPONS } from '../constants';
 import { Coupon, PaymentMethod } from '../types';
+import { getStorageUrl } from '../services/api';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { cart, removeFromCart, processCheckout, t, convertPrice, currentTenant, language, categories } = useStore();
+  const { cart, removeFromCart, processCheckout, t, convertPrice, currentTenant, language, validateCoupon } = useStore();
   
   // Conditional Form State
   const [playerId, setPlayerId] = useState('');
@@ -24,15 +25,17 @@ export const Checkout: React.FC = () => {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
   // Analyze Cart Content
-  // We need to check categories of items in cart
-  // 1: PUBG, 2: IMO, 3: Gaming Merch (Based on Mock Data, dynamic in real world)
   const cartCategoryIds = new Set(cart.map(c => c.product_category_id));
   
-  const hasPubg = cartCategoryIds.has(1); // Assuming ID 1 is PUBG
-  const hasImo = cartCategoryIds.has(2);  // Assuming ID 2 is IMO
-  const hasPhysical = cartCategoryIds.has(3); // Assuming ID 3 is Physical
+  // Adjust these IDs based on real data if possible, or assume similar structure
+  // Ideally, look at category slug, but we only have ID in Product interface easily accessibly.
+  // Let's assume specific IDs for now or use generic inputs.
+  const hasPubg = cartCategoryIds.has(1); 
+  const hasImo = cartCategoryIds.has(2);  
+  const hasPhysical = cartCategoryIds.has(3); 
 
   // Calculations
   const totalUSD = cart.reduce((sum, item) => sum + item.price, 0);
@@ -49,22 +52,24 @@ export const Checkout: React.FC = () => {
   const finalTotal = Math.max(0, totalUSD - discountAmount);
   const isBalanceInsufficient = paymentMethod === 'WALLET' && currentTenant.balance < finalTotal;
 
-  const handleApplyCoupon = (e: React.MouseEvent) => {
+  const handleApplyCoupon = async (e: React.MouseEvent) => {
     e.preventDefault();
     setCouponMessage(null);
-    
     if (!couponCode.trim()) return;
 
-    const found = VALID_COUPONS.find(c => c.code === couponCode.trim());
-    if (found) {
-      setAppliedCoupon(found);
-      setCouponMessage({ 
-        type: 'success', 
-        text: found.discountType === 'PERCENTAGE' ? `${found.value}% Discount Applied` : `$${found.value} Discount Applied` 
-      });
-    } else {
-      setAppliedCoupon(null);
-      setCouponMessage({ type: 'error', text: 'Invalid coupon code' });
+    setIsValidatingCoupon(true);
+    try {
+        const coupon = await validateCoupon(couponCode.trim());
+        setAppliedCoupon(coupon);
+        setCouponMessage({ 
+          type: 'success', 
+          text: coupon.discountType === 'PERCENTAGE' ? `${coupon.value}% Discount Applied` : `$${coupon.value} Discount Applied` 
+        });
+    } catch (err) {
+        setAppliedCoupon(null);
+        setCouponMessage({ type: 'error', text: 'Invalid coupon code' });
+    } finally {
+        setIsValidatingCoupon(false);
     }
   };
 
@@ -124,7 +129,7 @@ export const Checkout: React.FC = () => {
           <div className="space-y-4">
             {cart.map((item) => {
               const name = language === 'fa' ? item.fa_name : item.en_name;
-              const img = item.thumbnail || 'https://picsum.photos/100';
+              const img = getStorageUrl(item.thumbnail);
               return (
                 <div key={item.cartId} className="flex items-center justify-between bg-dark-900/50 p-3 rounded-lg">
                     <div className="flex items-center space-x-3">
@@ -146,7 +151,7 @@ export const Checkout: React.FC = () => {
           </div>
         </div>
 
-        {/* Dynamic Forms based on Category */}
+        {/* Dynamic Forms */}
         <form id="checkout-form" onSubmit={handleSubmit} className="space-y-6">
           
           {(hasPubg || hasImo) && (
@@ -264,7 +269,7 @@ export const Checkout: React.FC = () => {
                     placeholder={t('promo_code_placeholder')}
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
-                    disabled={!!appliedCoupon}
+                    disabled={!!appliedCoupon || isValidatingCoupon}
                     className="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none disabled:opacity-50"
                  />
                  <Tag className="w-4 h-4 text-gray-500 absolute top-2.5 right-3 rtl:left-3 rtl:right-auto" />
@@ -274,8 +279,12 @@ export const Checkout: React.FC = () => {
                     <X className="w-5 h-5" />
                  </button>
                ) : (
-                 <button onClick={handleApplyCoupon} className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors">
-                    {t('apply')}
+                 <button 
+                    onClick={handleApplyCoupon} 
+                    disabled={isValidatingCoupon || !couponCode}
+                    className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors disabled:opacity-50"
+                 >
+                    {isValidatingCoupon ? '...' : t('apply')}
                  </button>
                )}
             </div>

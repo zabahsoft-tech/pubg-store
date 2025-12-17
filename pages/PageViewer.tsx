@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -5,6 +6,7 @@ import { api } from '../services/api';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { RichTextRenderer } from '../components/ui/RichTextRenderer';
 
 export const PageViewer: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -54,12 +56,8 @@ export const PageViewer: React.FC = () => {
 
       {/* Content */}
       <div className="bg-dark-800 rounded-2xl p-8 md:p-12 border border-dark-700 shadow-xl">
-        <div className="prose prose-invert prose-lg max-w-none">
-           {/* Simple rendering for now, could be Markdown or HTML depending on API */}
-           <div className="whitespace-pre-wrap leading-relaxed text-gray-300">
-             {page.content}
-           </div>
-        </div>
+        {/* Render HTML Content safely */}
+        <RichTextRenderer content={page.content} />
       </div>
     </div>
   );

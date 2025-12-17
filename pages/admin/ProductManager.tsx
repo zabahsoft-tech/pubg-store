@@ -1,15 +1,18 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Plus, Edit, Trash2, ShieldAlert, Package, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, ShieldAlert, Package, Search, X } from 'lucide-react';
+import { getStorageUrl } from '../../services/api';
 
 export const ProductManager: React.FC = () => {
   const { user, products, categories, deleteProduct, convertPrice, language } = useStore();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Access Control: Redirect if not admin
   if (!user.isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -32,6 +35,7 @@ export const ProductManager: React.FC = () => {
     return cat ? (language === 'fa' ? cat.fa_name : cat.en_name) : 'Unknown';
   };
 
+  // Search Logic: Filter products by English name, Farsi name, or ID
   const filteredProducts = products.filter(prod => {
     const query = searchQuery.toLowerCase();
     return (
@@ -59,16 +63,26 @@ export const ProductManager: React.FC = () => {
       </div>
 
       {/* Search Bar */}
-      <div className="w-full">
+      <div className="w-full relative">
          <Input 
            placeholder="Search by English Name, Farsi Name, or ID..." 
            value={searchQuery}
            onChange={(e) => setSearchQuery(e.target.value)}
            icon={<Search className="w-5 h-5 text-gray-400" />}
-           className="bg-dark-800 border-dark-700 focus:bg-dark-900"
+           className="bg-dark-800 border-dark-700 focus:bg-dark-900 pr-10"
          />
+         {searchQuery && (
+           <button 
+             onClick={() => setSearchQuery('')}
+             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-white bg-dark-800/80 rounded-full hover:bg-dark-700 transition-colors z-10"
+             title="Clear search"
+           >
+             <X className="w-4 h-4" />
+           </button>
+         )}
       </div>
 
+      {/* Products Table */}
       <div className="bg-dark-800 rounded-xl border border-dark-700 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -85,7 +99,14 @@ export const ProductManager: React.FC = () => {
                 {filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                      {searchQuery ? 'No matching products found.' : 'No products found. Start selling by adding one!'}
+                      {searchQuery ? (
+                        <div className="flex flex-col items-center">
+                          <span className="mb-2">No products found matching "{searchQuery}"</span>
+                          <button onClick={() => setSearchQuery('')} className="text-brand-400 hover:underline text-sm">Clear Search</button>
+                        </div>
+                      ) : (
+                        'No products found. Start selling by adding one!'
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -93,7 +114,7 @@ export const ProductManager: React.FC = () => {
                     <tr key={prod.id} className="hover:bg-dark-700/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3 rtl:space-x-reverse">
-                            <img src={prod.thumbnail || 'https://picsum.photos/50'} alt="" className="w-12 h-12 object-cover rounded-lg border border-dark-600 bg-dark-900" />
+                            <img src={getStorageUrl(prod.thumbnail)} alt="" className="w-12 h-12 object-cover rounded-lg border border-dark-600 bg-dark-900" />
                             <div>
                                 <div className="font-bold text-white text-sm">{prod.en_name}</div>
                                 <div className="text-xs text-gray-500">ID: {prod.id}</div>

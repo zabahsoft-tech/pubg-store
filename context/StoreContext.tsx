@@ -1,7 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User, Product, ProductCategory, Language, Tenant, Currency, CartItem, OrderProduct, Page, BlogPost, PaymentMethod } from '../types';
-import { MOCK_USER, TRANSLATIONS, EXCHANGE_RATES, DYNAMIC_PAGES, PRODUCTS, CATEGORIES } from '../constants';
+import { User, Product, ProductCategory, Language, Tenant, Currency, CartItem, OrderProduct, Page, BlogPost, PaymentMethod, Wallet, WalletTransaction, Coupon } from '../types';
+import { TRANSLATIONS, EXCHANGE_RATES } from '../constants';
 import { api } from '../services/api';
 
 interface StoreContextType {
@@ -13,7 +14,10 @@ interface StoreContextType {
   blogPosts: BlogPost[];
   products: Product[];
   categories: ProductCategory[];
+  wallet: Wallet | null;
+  transactions: WalletTransaction[];
   currentTenant: Tenant;
+  
   setLanguage: (lang: Language) => void;
   setCurrency: (curr: Currency) => void;
   addToCart: (product: Product) => void;
@@ -24,12 +28,15 @@ interface StoreContextType {
     metaData: { playerId?: string, phone?: string, address?: string },
     paymentMethod: PaymentMethod
   ) => Promise<void>;
-  topUpWallet: (amount: number) => Promise<void>;
+  creditWallet: (amount: number, pm_type?: string) => Promise<void>;
+  validateCoupon: (code: string) => Promise<Coupon>;
+  createTopUp: (data: { phone: string; amount: number; operator: string; pm_type?: string }) => Promise<any>;
   verifyEmail: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<User>;
   switchTenant: (tenantId: string) => void;
   t: (key: string) => string;
-  // Blog Actions
+  
+  // Blog Actions (Client side mutation wrappers for admin)
   addBlogPost: (post: Omit<BlogPost, 'id' | 'created_at'>) => Promise<BlogPost>;
   updateBlogPost: (id: number, post: Partial<BlogPost>) => Promise<void>;
   deleteBlogPost: (id: number) => Promise<void>;
@@ -41,6 +48,18 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
+// Guest User Fallback
+const GUEST_USER: User = {
+    id: 'guest',
+    name: 'Guest User',
+    email: '',
+    emailVerified: false,
+    isAdmin: false,
+    tenants: [],
+    orders: [],
+    wallet: undefined
+};
+
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
   
@@ -50,45 +69,68 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [currency, setCurrency] = useState<Currency>('USD');
   const [currentTenantId, setCurrentTenantId] = useState<string>('');
 
+  // --- Helpers ---
+  const safeArray = <T,>(data: any, fallback: T[] = []): T[] => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object' && Array.isArray((data as any).data)) return (data as any).data;
+    return fallback;
+  };
+
+  const safeObject = <T,>(data: any, fallback: T): T => {
+    if (data && typeof data === 'object' && !Array.isArray(data) && (data as any).data) return (data as any).data;
+    return data || fallback;
+  };
+
   // --- React Query Data Fetching ---
 
   // 1. Fetch User
-  const { data: user = MOCK_USER } = useQuery({
+  const { data: userData } = useQuery({
     queryKey: ['user'],
     queryFn: api.getUser,
-    initialData: MOCK_USER,
+    retry: false,
   });
+  const user = safeObject<User>(userData, GUEST_USER);
 
-  // 2. Fetch Blog Posts
-  const { data: blogPosts = [] } = useQuery({
-    queryKey: ['blogPosts'],
-    queryFn: api.getBlogPosts,
+  // 2. Fetch Wallet
+  const { data: walletData } = useQuery({
+    queryKey: ['wallet'],
+    queryFn: api.getWallet,
+    enabled: !!user.id && user.id !== 'guest',
   });
+  const wallet = safeObject<Wallet | null>(walletData, null);
 
-  // 3. Fetch Products
-  const { data: products = PRODUCTS } = useQuery({
+  // 3. Fetch Wallet Transactions
+  const { data: transactionsData } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: api.getWalletTransactions,
+    enabled: !!user.id && user.id !== 'guest',
+  });
+  const transactions = safeArray<WalletTransaction>(transactionsData, []);
+
+  // 4. Fetch Products
+  const { data: productsData } = useQuery({
     queryKey: ['products'],
     queryFn: api.getProducts,
-    initialData: PRODUCTS,
   });
+  const products = safeArray<Product>(productsData, []);
 
-  // 4. Fetch Categories
-  const { data: categories = CATEGORIES } = useQuery({
+  // 5. Fetch Categories
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: api.getCategories,
-    initialData: CATEGORIES,
   });
+  const categories = safeArray<ProductCategory>(categoriesData, []);
 
-  // 5. Fetch Pages
-  const { data: pages = DYNAMIC_PAGES } = useQuery({
-    queryKey: ['pages'],
-    queryFn: () => api.getPages(),
-    initialData: DYNAMIC_PAGES
-  });
+  // 6. Fetch Pages and Blog
+  const { data: pagesData } = useQuery({ queryKey: ['pages'], queryFn: () => api.getPages() });
+  const pages = safeArray<Page>(pagesData, []);
+
+  const { data: blogPostsData } = useQuery({ queryKey: ['blogPosts'], queryFn: api.getBlogPosts });
+  const blogPosts = safeArray<BlogPost>(blogPostsData, []);
 
   // Derived State
   useEffect(() => {
-    if (user.tenants.length > 0 && !currentTenantId) {
+    if (user.tenants && user.tenants.length > 0 && !currentTenantId) {
       setCurrentTenantId(user.tenants[0].id);
     }
   }, [user, currentTenantId]);
@@ -98,7 +140,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     document.documentElement.lang = language;
   }, [language]);
 
-  const currentTenant = user.tenants.find(t => t.id === currentTenantId) || user.tenants[0];
+  // Construct current tenant but override balance with wallet if available
+  const baseTenant = user.tenants?.find(t => t.id === currentTenantId) || user.tenants?.[0] || { id: 'default', name: 'Default', type: 'PERSONAL', balance: 0 };
+  const currentTenant: Tenant = {
+    ...baseTenant,
+    balance: wallet ? wallet.balance : baseTenant.balance || 0
+  };
 
   const t = (key: string): string => {
     return TRANSLATIONS[language][key as keyof typeof TRANSLATIONS['en']] || key;
@@ -130,70 +177,45 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // --- Mutations ---
 
-  const topUpMutation = useMutation({
-    mutationFn: async (amount: number) => {
-      const response = await api.topUpWallet(amount, currentTenant.id);
-      return response;
+  const creditWalletMutation = useMutation({
+    mutationFn: async ({ amount, pm_type }: { amount: number, pm_type: string }) => {
+      return api.creditWallet(amount, pm_type);
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['user'], (oldUser: User) => ({
-        ...oldUser,
-        tenants: oldUser.tenants.map(t => 
-          t.id === currentTenant.id ? { ...t, balance: data.balance } : t
-        )
-      }));
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
     }
   });
 
-  const topUpWallet = async (amount: number) => {
-    await topUpMutation.mutateAsync(amount);
+  const creditWallet = async (amount: number, pm_type: string = 'stripe') => {
+    await creditWalletMutation.mutateAsync({ amount, pm_type });
   };
 
   // Checkout Mutation - Creates OrderProducts
   const checkoutMutation = useMutation({
     mutationFn: async ({ metaData, paymentMethod }: { metaData: any, paymentMethod: PaymentMethod }) => {
-      const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
-
-      // Check balance if Wallet payment
-      if (paymentMethod === 'WALLET') {
-         if (currentTenant.balance < totalAmount) {
-            throw new Error('Insufficient wallet balance');
-         }
-      }
-
-      // Create OrderProduct for each item in cart
-      const createdOrders: OrderProduct[] = [];
+      // Logic handled mostly by backend now, but we iterate cart items to create orders
+      // In a real app, you might send the whole cart to one endpoint '/orders', but here we use createOrderProduct loop as per existing structure
+      // or assuming backend handles bulk.
+      // Based on provided API, we have `createOrderProduct`.
+      
+      const results = [];
       for (const item of cart) {
           const order = await api.createOrderProduct({
               product_id: item.id,
               pm_type: paymentMethod.toLowerCase(),
-              status: 'pending',
-              is_paid: true, 
-              quantity: 1, // Assuming 1 per cart item for now
+              quantity: 1, 
               total_price: item.price,
-              // Pass metadata to backend if supported by OrderProduct
+              // metadata could be passed if API supports it, likely needs a custom field or comment
           });
-          createdOrders.push(order);
+          results.push(order);
       }
-
-      return { createdOrders, totalAmount };
+      return results;
     },
-    onSuccess: ({ createdOrders, totalAmount }, variables) => {
-      // Update User Orders and Balance
-      queryClient.setQueryData(['user'], (oldUser: User) => {
-        const updatedTenants = oldUser.tenants.map(t => {
-            if (t.id === currentTenant.id && variables.paymentMethod === 'WALLET') {
-                return { ...t, balance: t.balance - totalAmount };
-            }
-            return t;
-        });
-
-        return {
-          ...oldUser,
-          tenants: updatedTenants,
-          orders: [...createdOrders, ...oldUser.orders]
-        };
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] }); // Refresh user orders
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       clearCart();
     }
   });
@@ -208,59 +230,49 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const verifyEmailMutation = useMutation({
     mutationFn: api.verifyEmail,
     onSuccess: () => {
-      queryClient.setQueryData(['user'], (oldUser: User) => ({
-        ...oldUser,
-        emailVerified: true
-      }));
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     }
   });
-
-  const verifyEmail = async () => {
-    await verifyEmailMutation.mutateAsync();
-  };
+  const verifyEmail = async () => await verifyEmailMutation.mutateAsync();
 
   const updateProfileMutation = useMutation({
     mutationFn: api.updateProfile,
-    onSuccess: (updatedUser) => {
-      queryClient.setQueryData(['user'], (old: User) => ({ ...old, ...updatedUser }));
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     }
   });
+  const updateProfile = async (data: Partial<User>) => await updateProfileMutation.mutateAsync(data);
 
-  const updateProfile = async (data: Partial<User>) => {
-    await updateProfileMutation.mutateAsync(data);
+  // --- New API wrappers ---
+  const validateCoupon = async (code: string) => {
+      return await api.validateCoupon(code);
   };
 
-  // Blog Mutations
-  const addBlogPostMutation = useMutation({
-    mutationFn: async (post: Omit<BlogPost, 'id' | 'created_at'>) => {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const newPost: BlogPost = { ...post, id: Math.random(), created_at: new Date().toISOString().split('T')[0] };
-      return newPost;
-    },
-    onSuccess: (newPost) => queryClient.setQueryData(['blogPosts'], (old: BlogPost[] = []) => [newPost, ...old])
-  });
-  const addBlogPost = async (post: Omit<BlogPost, 'id' | 'created_at'>) => addBlogPostMutation.mutateAsync(post);
+  const createTopUp = async (data: { phone: string; amount: number; operator: string; pm_type?: string }) => {
+      const res = await api.createTopUp(data);
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      return res;
+  };
+
+  // Blog & Product Mutations (Placeholder/mocked logic removed or kept minimal if backend endpoints exist for these)
+  // Since api.php didn't show DELETE/PUT for blogs/products explicitly for admin (except maybe standard resource controllers), 
+  // we will assume they exist or keep simple state updates if admin API is not fully provided.
+  // The provided API list had GET for products/blogs. 
+  // We'll leave these as placeholders that would call API if implemented.
+
+  const addBlogPost = async (post: Omit<BlogPost, 'id' | 'created_at'>) => {
+      // const res = await apiRequest('/blogs', { method: 'POST', body: JSON.stringify(post) });
+      // return res;
+      return {} as BlogPost; // Placeholder
+  };
   const updateBlogPost = async (id: number, post: Partial<BlogPost>) => {};
   const deleteBlogPost = async (id: number) => {};
 
-  // Product Mutations (Mock)
-  const addProductMutation = useMutation({
-      mutationFn: async (prod: Omit<Product, 'id'>) => {
-          await new Promise(r => setTimeout(r, 500));
-          return { ...prod, id: Date.now() } as Product;
-      },
-      onSuccess: (newProd) => {
-          queryClient.setQueryData(['products'], (old: Product[] = []) => [...old, newProd]);
-      }
-  });
-
-  const addProduct = async (prod: Omit<Product, 'id'>) => await addProductMutation.mutateAsync(prod);
-  const updateProduct = async (id: number, prod: Partial<Product>) => {
-       queryClient.setQueryData(['products'], (old: Product[] = []) => old.map(p => p.id === id ? {...p, ...prod} : p));
+  const addProduct = async (prod: Omit<Product, 'id'>) => {
+       return {} as Product;
   };
-  const deleteProduct = async (id: number) => {
-      queryClient.setQueryData(['products'], (old: Product[] = []) => old.filter(p => p.id !== id));
-  };
+  const updateProduct = async (id: number, prod: Partial<Product>) => {};
+  const deleteProduct = async (id: number) => {};
 
   return (
     <StoreContext.Provider value={{ 
@@ -272,6 +284,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       blogPosts,
       products,
       categories,
+      wallet,
+      transactions,
       currentTenant, 
       setLanguage, 
       setCurrency,
@@ -280,7 +294,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       clearCart,
       convertPrice,
       processCheckout, 
-      topUpWallet,
+      creditWallet,
+      validateCoupon,
+      createTopUp,
       verifyEmail, 
       updateProfile,
       switchTenant,

@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
 import { Button } from '../../components/ui/Button';
 import { Plus, Edit, Trash2, ShieldAlert, CheckCircle, XCircle, LayoutDashboard } from 'lucide-react';
+import { getStorageUrl } from '../../services/api';
 
 export const BlogManager: React.FC = () => {
   const { user, blogPosts, deleteBlogPost } = useStore();
@@ -69,7 +71,7 @@ export const BlogManager: React.FC = () => {
                   blogPosts.map(post => (
                     <tr key={post.id} className="hover:bg-dark-700/50 transition-colors">
                       <td className="px-6 py-4">
-                        <img src={post.thumbnail} alt="" className="w-16 h-10 object-cover rounded-lg border border-dark-600" />
+                        <img src={getStorageUrl(post.thumbnail)} alt="" className="w-16 h-10 object-cover rounded-lg border border-dark-600" />
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-bold text-white mb-1 truncate max-w-xs">{post.en_title}</div>

@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../services/api';
+import { api, getStorageUrl } from '../services/api';
 import { useStore } from '../context/StoreContext';
 import { ArrowLeft, Calendar, Share2, Loader2, AlertCircle } from 'lucide-react';
+import { RichTextRenderer } from '../components/ui/RichTextRenderer';
 
 export const BlogPostPage: React.FC = () => {
   const { id } = useParams<{ id: string }>(); // This captures 'id_or_slug' from the route
@@ -49,7 +51,7 @@ export const BlogPostPage: React.FC = () => {
       </button>
 
       <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl border border-dark-700">
-        <img src={post.thumbnail} alt={title} className="w-full h-full object-cover" />
+        <img src={getStorageUrl(post.thumbnail)} alt={title} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-dark-900 to-transparent opacity-80"></div>
         <div className="absolute bottom-0 left-0 p-8 w-full rtl:right-0 rtl:left-auto">
           <div className="flex items-center space-x-4 mb-3 text-gray-300 text-sm">
@@ -61,10 +63,9 @@ export const BlogPostPage: React.FC = () => {
       </div>
 
       <div className="bg-dark-800 rounded-xl p-8 border border-dark-700 shadow-lg">
-         <div className="prose prose-invert prose-lg max-w-none">
-           <div className="whitespace-pre-wrap text-gray-300 leading-8">
-             {description}
-           </div>
+         {/* Use Rich Text Renderer here to handle HTML tags */}
+         <div className="min-h-[200px]">
+            <RichTextRenderer content={description} />
          </div>
          
          <div className="mt-12 pt-6 border-t border-dark-700 flex justify-between items-center">

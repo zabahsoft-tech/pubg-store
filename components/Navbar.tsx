@@ -1,10 +1,11 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { Wallet, Menu, UserCircle, Globe, ShoppingCart, ChevronDown, Building2, Store, Newspaper, LogOut, LayoutDashboard, User, Smartphone, ShieldCheck } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, cart, language, setLanguage, currency, setCurrency, currentTenant, switchTenant, t } = useStore();
+  const { user, cart, language, setLanguage, currency, setCurrency, currentTenant, switchTenant, wallet, t } = useStore();
   const location = useLocation();
   const [isTenantOpen, setIsTenantOpen] = useState(false);
   const [isUserOpen, setIsUserOpen] = useState(false);
@@ -56,6 +57,8 @@ export const Navbar: React.FC = () => {
     );
   };
 
+  const displayBalance = wallet ? wallet.balance : (currentTenant?.balance || 0);
+
   return (
     <>
       <nav className="sticky top-0 z-50 bg-dark-900/90 backdrop-blur-xl border-b border-dark-800 shadow-lg">
@@ -92,47 +95,12 @@ export const Navbar: React.FC = () => {
             {/* Right Actions */}
             <div className="flex items-center space-x-3 rtl:space-x-reverse">
               
-              {/* Wallet & Tenant Combined Pill */}
+              {/* Wallet Pill */}
               <div className="hidden sm:flex items-center bg-dark-800 rounded-full border border-dark-700 p-1 pr-4 rtl:pl-4 rtl:pr-1">
-                 {user.tenants.length > 1 ? (
-                   <div className="relative" ref={tenantRef}>
-                     <button 
-                       onClick={() => setIsTenantOpen(!isTenantOpen)}
-                       className="flex items-center space-x-2 px-3 py-1 rounded-full hover:bg-dark-700 transition-colors"
-                     >
-                       <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                       <span className="text-xs font-medium text-gray-300 max-w-[80px] truncate">{currentTenant.name}</span>
-                       <ChevronDown className="w-3 h-3 text-gray-500" />
-                     </button>
-                     {/* Tenant Dropdown */}
-                     {isTenantOpen && (
-                       <div className="absolute top-full mt-2 left-0 w-48 bg-dark-800 rounded-xl shadow-xl border border-dark-700 overflow-hidden z-50 animate-in fade-in zoom-in-95">
-                         {user.tenants.map((tenant) => (
-                           <button
-                             key={tenant.id}
-                             onClick={() => handleTenantSwitch(tenant.id)}
-                             className={`w-full text-left px-4 py-2 text-xs flex items-center space-x-2 hover:bg-dark-700 ${currentTenant.id === tenant.id ? 'text-brand-400 bg-brand-500/5' : 'text-gray-400'}`}
-                           >
-                             {tenant.type === 'PERSONAL' ? '👤' : '🏢'} 
-                             <span className="truncate">{tenant.name}</span>
-                           </button>
-                         ))}
-                       </div>
-                     )}
-                   </div>
-                 ) : (
-                    <div className="px-3 py-1 flex items-center">
-                      <Building2 className="w-3.5 h-3.5 text-gray-400 mr-2" />
-                      <span className="text-xs text-gray-300">Personal</span>
-                    </div>
-                 )}
-                 
-                 <div className="h-4 w-px bg-dark-700 mx-1"></div>
-
                  <div className="flex items-center space-x-2 pl-2 rtl:pr-2 rtl:pl-0 text-emerald-400">
                     <Wallet className="w-3.5 h-3.5" />
                     <span className="text-xs font-bold font-mono">
-                      {currency === 'USD' ? `$${currentTenant.balance.toLocaleString()}` : `${Math.floor(currentTenant.balance * 75).toLocaleString()} ؋`}
+                      {currency === 'USD' ? `$${displayBalance.toLocaleString()}` : `${Math.floor(displayBalance * 75).toLocaleString()} ؋`}
                     </span>
                  </div>
               </div>

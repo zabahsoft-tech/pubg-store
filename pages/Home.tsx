@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { ProductCard } from '../components/ProductCard';
 import { useStore } from '../context/StoreContext';
 import { Product } from '../types';
 import { Gamepad2, ShoppingBag, ArrowRight, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { stripHtml } from '../components/ui/RichTextRenderer';
+import { getStorageUrl } from '../services/api';
 
 export const Home: React.FC = () => {
   const { addToCart, t, blogPosts, products, categories, language } = useStore();
@@ -41,7 +44,7 @@ export const Home: React.FC = () => {
               className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === activeSlide ? 'opacity-100' : 'opacity-0'}`}
             >
               <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/50 to-transparent z-10"></div>
-              <img src={blog.thumbnail} alt={language === 'fa' ? blog.fa_title : blog.en_title} className="w-full h-full object-cover" />
+              <img src={getStorageUrl(blog.thumbnail)} alt={language === 'fa' ? blog.fa_title : blog.en_title} className="w-full h-full object-cover" />
               
               <div className="absolute bottom-0 left-0 p-6 md:p-12 z-20 max-w-2xl rtl:right-0 rtl:left-auto">
                 <span className="inline-block px-3 py-1 bg-brand-500 text-white text-xs font-bold rounded-full mb-3">{t('featured_tag')}</span>
@@ -49,7 +52,7 @@ export const Home: React.FC = () => {
                     {language === 'fa' ? blog.fa_title : blog.en_title}
                 </h2>
                 <p className="text-gray-300 text-sm md:text-lg mb-4 md:mb-6 line-clamp-2 hidden md:block">
-                    {language === 'fa' ? blog.fa_description : blog.en_description}
+                    {stripHtml(language === 'fa' ? blog.fa_description : blog.en_description)}
                 </p>
                 <Link to={`/blog/${blog.slug}`} className="flex items-center space-x-2 text-brand-400 font-bold hover:text-brand-300 transition-colors">
                   <span>{t('hero_read_more')}</span>

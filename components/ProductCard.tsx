@@ -1,9 +1,12 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../types';
 import { Button } from './ui/Button';
 import { useStore } from '../context/StoreContext';
 import { Sparkles, ShoppingCart, Package as PackageIcon } from 'lucide-react';
+import { stripHtml } from './ui/RichTextRenderer';
+import { getStorageUrl } from '../services/api';
 
 interface ProductCardProps {
   product: Product;
@@ -15,7 +18,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
 
   const name = language === 'fa' ? product.fa_name : product.en_name;
   const description = language === 'fa' ? product.fa_description : product.en_description;
-  const image = product.thumbnail || 'https://picsum.photos/200';
+  const image = getStorageUrl(product.thumbnail);
   
   // Find category name for logic/display
   const category = categories.find(c => c.id === product.product_category_id);
@@ -44,7 +47,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
           <h3 className="text-white font-bold text-sm leading-tight line-clamp-2">{name}</h3>
         </Link>
         
-        <p className="text-gray-400 text-xs mb-3 line-clamp-2">{description}</p>
+        <p className="text-gray-400 text-xs mb-3 line-clamp-2">{stripHtml(description)}</p>
         
         <div className="mt-auto pt-3 border-t border-dark-700 flex items-center justify-between">
           <span className="text-lg font-bold text-white">{convertPrice(product.price)}</span>

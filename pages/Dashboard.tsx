@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { User, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { OrderProduct } from '../types';
+import { getStorageUrl } from '../services/api';
 
 export const Dashboard: React.FC = () => {
   const { user, t, convertPrice, language } = useStore();
@@ -28,7 +30,7 @@ export const Dashboard: React.FC = () => {
      // If order has a product relation loaded, use it.
      const prod = order.product;
      const prodName = prod ? (language === 'fa' ? prod.fa_name : prod.en_name) : `Product #${order.product_id}`;
-     const prodImg = prod && prod.thumbnail ? prod.thumbnail : 'https://picsum.photos/100';
+     const prodImg = getStorageUrl(prod?.thumbnail);
 
      return (
         <div className="bg-dark-800 rounded-xl p-5 border border-dark-700 hover:border-brand-500/30 transition-all shadow-lg">

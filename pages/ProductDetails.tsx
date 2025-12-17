@@ -1,11 +1,13 @@
+
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../services/api';
+import { api, getStorageUrl } from '../services/api';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft, Check, ShoppingCart, Star, ShieldCheck, Loader2 } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
+import { RichTextRenderer } from '../components/ui/RichTextRenderer';
 
 export const ProductDetails: React.FC = () => {
   const { id: slug } = useParams<{ id: string }>();
@@ -41,7 +43,7 @@ export const ProductDetails: React.FC = () => {
 
   const name = language === 'fa' ? product.fa_name : product.en_name;
   const description = language === 'fa' ? product.fa_description : product.en_description;
-  const image = product.thumbnail || 'https://picsum.photos/200';
+  const image = getStorageUrl(product.thumbnail);
   
   const category = categories.find(c => c.id === product.product_category_id);
   const isPhysical = category?.slug.includes('merch');
@@ -91,11 +93,9 @@ export const ProductDetails: React.FC = () => {
              )}
           </div>
 
-          <div className="prose prose-invert">
+          <div>
             <h3 className="text-white font-semibold mb-2">{t('description')}</h3>
-            <p className="text-gray-400 leading-relaxed">
-              {description || "No description available."}
-            </p>
+            <RichTextRenderer content={description || "No description available."} className="text-gray-400" />
           </div>
 
           <div className="pt-6 border-t border-dark-700 flex flex-col sm:flex-row gap-4">

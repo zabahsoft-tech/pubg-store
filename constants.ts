@@ -1,4 +1,5 @@
-import { Coupon, User, BlogPost, Page, ExchangeRate, Product, ProductCategory, OrderProduct } from './types';
+
+import { Coupon, User, BlogPost, Page, ExchangeRate, Product, ProductCategory, OrderProduct, Wallet, WalletTransaction } from './types';
 
 // Exchange Rates (Base USD)
 export const EXCHANGE_RATES: ExchangeRate = {
@@ -87,7 +88,10 @@ export const TRANSLATIONS = {
     back_home: "Back to Home",
     post_not_found: "Post not found",
     loading: "Loading...",
-    featured_tag: "Featured"
+    featured_tag: "Featured",
+    wallet_balance: "Wallet Balance",
+    add_funds: "Add Funds to Wallet",
+    recent_transactions: "Recent Transactions"
   },
   fa: {
     nav_store: "فروشگاه",
@@ -159,7 +163,10 @@ export const TRANSLATIONS = {
     back_home: "بازگشت به خانه",
     post_not_found: "پست پیدا نشد",
     loading: "در حال بارگذاری...",
-    featured_tag: "ویژه"
+    featured_tag: "ویژه",
+    wallet_balance: "موجودی کیف پول",
+    add_funds: "افزایش موجودی",
+    recent_transactions: "تراکنش‌های اخیر"
   }
 };
 
@@ -281,6 +288,45 @@ export const VALID_COUPONS: Coupon[] = [
   { id: 1, code: 'RAHAT10', discountType: 'PERCENTAGE', value: 10 }, 
 ];
 
+export const MOCK_WALLET: Wallet = {
+  id: 1,
+  balance: 150.00,
+  is_active: true,
+  user_id: 12345,
+  created_at: '2023-01-01T00:00:00Z',
+  updated_at: '2023-01-01T00:00:00Z'
+};
+
+export const MOCK_TRANSACTIONS: WalletTransaction[] = [
+  {
+    id: 1,
+    pm_type: 'stripe',
+    type: 'credit',
+    amount: 50.00,
+    wallet_id: 1,
+    user_id: 12345,
+    created_at: '2024-03-01T10:00:00Z'
+  },
+  {
+    id: 2,
+    pm_type: 'stripe',
+    type: 'credit',
+    amount: 100.00,
+    wallet_id: 1,
+    user_id: 12345,
+    created_at: '2024-03-05T14:30:00Z'
+  },
+  {
+    id: 3,
+    pm_type: 'wallet',
+    type: 'debit',
+    amount: 25.00,
+    wallet_id: 1,
+    user_id: 12345,
+    created_at: '2024-03-10T09:15:00Z'
+  }
+];
+
 export const MOCK_USER: User = {
   id: 'u_12345',
   name: 'Alex Gamer',
@@ -289,10 +335,10 @@ export const MOCK_USER: User = {
   emailVerified: true, 
   isAdmin: true,
   tenants: [
-    { id: 't_personal', name: 'Personal Account', type: 'PERSONAL', balance: 150.00 },
-    { id: 't_business', name: 'Pro Reseller', type: 'BUSINESS', balance: 2500.00 }
+    { id: 't_personal', name: 'Personal Account', type: 'PERSONAL', balance: 150.00 }, // Legacy support
   ],
-  orders: []
+  orders: [],
+  wallet: MOCK_WALLET
 };
 
 // CMS: Blog Posts

@@ -1,25 +1,28 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { StripePaymentForm } from '../components/StripePaymentForm';
 import { Smartphone, Signal, CheckCircle, Zap, Tag, Check, X, CreditCard, Hash, Wallet, AlertCircle } from 'lucide-react';
-import { OPERATOR_PREFIXES, VALID_COUPONS } from '../constants';
+import { OPERATOR_PREFIXES } from '../constants';
 import { Coupon, PaymentMethod } from '../types';
 
 export const MobileTopUp: React.FC = () => {
-  const { t, convertPrice, currentTenant } = useStore();
+  const { t, convertPrice, currentTenant, createTopUp, validateCoupon } = useStore();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [detectedOperator, setDetectedOperator] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WALLET');
+  const [error, setError] = useState<string | null>(null);
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
   // Smart Operator Detection Logic (Afghan Numbers 07x)
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,20 +38,23 @@ export const MobileTopUp: React.FC = () => {
     }
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     setCouponMessage(null);
     if (!couponCode.trim()) return;
 
-    const found = VALID_COUPONS.find(c => c.code === couponCode.trim());
-    if (found) {
-      setAppliedCoupon(found);
-      setCouponMessage({ 
-        type: 'success', 
-        text: found.discountType === 'PERCENTAGE' ? `${found.value}% Discount Applied` : `$${found.value} Discount Applied` 
-      });
-    } else {
-      setAppliedCoupon(null);
-      setCouponMessage({ type: 'error', text: 'Invalid coupon code' });
+    setIsValidatingCoupon(true);
+    try {
+        const coupon = await validateCoupon(couponCode.trim());
+        setAppliedCoupon(coupon);
+        setCouponMessage({ 
+          type: 'success', 
+          text: coupon.discountType === 'PERCENTAGE' ? `${coupon.value}% Discount Applied` : `$${coupon.value} Discount Applied` 
+        });
+    } catch (err) {
+        setAppliedCoupon(null);
+        setCouponMessage({ type: 'error', text: 'Invalid coupon code' });
+    } finally {
+        setIsValidatingCoupon(false);
     }
   };
 
@@ -60,14 +66,23 @@ export const MobileTopUp: React.FC = () => {
 
   const handleRecharge = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     if (!phoneNumber || !amount || !detectedOperator) return;
 
     setIsLoading(true);
-    // Simulate API call and delay
-    setTimeout(() => {
+    try {
+        await createTopUp({
+            phone: phoneNumber,
+            amount: parseFloat(amount),
+            operator: detectedOperator,
+            pm_type: paymentMethod.toLowerCase()
+        });
         setSuccess(true);
+    } catch (err: any) {
+        setError(err.message || 'Top-up failed. Please try again.');
+    } finally {
         setIsLoading(false);
-    }, 1500);
+    }
   };
 
   // Calculate Finals
@@ -239,7 +254,7 @@ export const MobileTopUp: React.FC = () => {
                             placeholder={t('promo_code_placeholder')}
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value)}
-                            disabled={!!appliedCoupon}
+                            disabled={!!appliedCoupon || isValidatingCoupon}
                             className="w-full bg-dark-900 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none disabled:opacity-50 font-mono uppercase"
                          />
                          <Tag className="w-4 h-4 text-gray-500 absolute top-2.5 right-3 rtl:left-3 rtl:right-auto" />
@@ -249,8 +264,12 @@ export const MobileTopUp: React.FC = () => {
                             <X className="w-5 h-5" />
                          </button>
                        ) : (
-                         <button onClick={handleApplyCoupon} className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors shadow-lg shadow-brand-900/20">
-                            {t('apply')}
+                         <button 
+                             onClick={handleApplyCoupon} 
+                             disabled={!couponCode || isValidatingCoupon}
+                             className="bg-brand-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-brand-500 transition-colors shadow-lg shadow-brand-900/20 disabled:opacity-50"
+                         >
+                            {isValidatingCoupon ? '...' : t('apply')}
                          </button>
                        )}
                     </div>
@@ -285,6 +304,13 @@ export const MobileTopUp: React.FC = () => {
                         <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                         Insufficient Balance
                      </div>
+                 )}
+                 
+                 {error && (
+                    <div className="mb-4 bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-lg text-sm flex items-start">
+                        <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                        {error}
+                    </div>
                  )}
 
                  <Button 

@@ -1,3 +1,4 @@
+
 export type Currency = 'USD' | 'AFN';
 export type OrderStatus = 'pending' | 'completed' | 'failed';
 export type Language = 'en' | 'fa';
@@ -86,11 +87,33 @@ export interface OrderProduct {
   coupon?: Coupon;
 }
 
+// Laravel Wallet Model
+export interface Wallet {
+  id: number;
+  balance: number;
+  is_active: boolean;
+  user_id: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Laravel WalletTransaction Model
+export interface WalletTransaction {
+  id: number;
+  pm_type: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  wallet_id: number;
+  user_id: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Tenant {
   id: string;
   name: string;
   type: 'PERSONAL' | 'BUSINESS';
-  balance: number;
+  balance: number; // Deprecated in favor of Wallet
 }
 
 export interface User {
@@ -101,7 +124,8 @@ export interface User {
   emailVerified: boolean;
   isAdmin: boolean;
   tenants: Tenant[];
-  orders: OrderProduct[]; 
+  orders: OrderProduct[];
+  wallet?: Wallet; // Optional relation
 }
 
 export interface Coupon {
@@ -109,15 +133,4 @@ export interface Coupon {
   code: string;
   discountType: 'PERCENTAGE' | 'FIXED';
   value: number;
-}
-
-export interface Transaction {
-  id: string;
-  date: string;
-  type: 'DEPOSIT' | 'WITHDRAWAL' | 'PAYMENT' | 'REFUND';
-  description: string;
-  amount: number;
-  status: 'PENDING' | 'COMPLETED' | 'FAILED';
-  paymentMethod?: string;
-  tenantId: string;
 }
