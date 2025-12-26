@@ -1,6 +1,6 @@
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { User, Product, ProductCategory, Language, Tenant, Currency, CartItem, OrderProduct, Page, BlogPost, PaymentMethod, Wallet, WalletTransaction, Coupon, LoginCredentials, RegisterData } from '../types';
 import { TRANSLATIONS, EXCHANGE_RATES } from '../constants';
 import { api } from '../services/api';
@@ -38,7 +38,7 @@ interface StoreContextType {
   ) => Promise<void>;
   creditWallet: (amount: number, pm_type?: string) => Promise<void>;
   validateCoupon: (code: string) => Promise<Coupon>;
-  createTopUp: (data: { phone: string; amount: number; operator: string; pm_type?: string }) => Promise<any>;
+  createTopUp: (data: { phone: string; amount: number; pm_type: string; coupon?: string }) => Promise<any>;
   verifyEmail: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<User>;
   switchTenant: (tenantId: string) => void;
@@ -57,15 +57,13 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
-  const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('auth_token'));
   
-  // Local State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [language, setLanguage] = useState<Language>('en');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [currentTenantId, setCurrentTenantId] = useState<string>('');
 
-  // --- Helpers ---
   const safeArray = <T,>(data: any, fallback: T[] = []): T[] => {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object' && Array.isArray((data as any).data)) return (data as any).data;
@@ -77,25 +75,29 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return data || fallback;
   };
 
-  // --- Auth & User ---
-  // We attempt to fetch user even without token to check for session cookies
   const { data: userData, isError, isLoading: isUserQueryLoading } = useQuery({
-    queryKey: ['user'], 
+    queryKey: ['user', token],
     queryFn: api.getUser,
-    retry: false,
+    enabled: !!token, 
+    retry: 2,
+    staleTime: 1000 * 60 * 10, // 10 minutes cache for user profile
   });
 
-  const user = (!isError) ? safeObject<User | null>(userData, null) : null;
-  const isAuthenticated = !!user;
-  const isAuthLoading = isUserQueryLoading;
+  // Memoized user derivation for stability and persistence
+  const user = useMemo(() => {
+    if (!token || isError || !userData) return null;
+    const raw = safeObject<User | null>(userData, null);
+    if (!raw) return null;
+    return {
+      ...raw,
+      orders: safeArray(raw.orders, []),
+      tenants: safeArray(raw.tenants, [])
+    };
+  }, [userData, isError, token]);
 
-  // Sync token state if API fails (401)
-  useEffect(() => {
-      if (isError) {
-          localStorage.removeItem('auth_token');
-          setToken(null);
-      }
-  }, [isError]);
+  const isAuthenticated = !!user;
+  // loading state is true only when we HAVE a token but the user object isn't fetched yet
+  const isAuthLoading = !!token && isUserQueryLoading && !userData;
 
   const login = async (credentials: LoginCredentials) => {
       const response = await api.login(credentials);
@@ -103,9 +105,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (newToken) {
           localStorage.setItem('auth_token', newToken);
           setToken(newToken);
+          // Pre-fill cache for immediate UI update
+          queryClient.setQueryData(['user', newToken], response.user);
       }
-      queryClient.setQueryData(['user'], response.user);
-      queryClient.invalidateQueries({ queryKey: ['user'] });
   };
 
   const register = async (data: RegisterData) => {
@@ -114,59 +116,51 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (newToken) {
           localStorage.setItem('auth_token', newToken);
           setToken(newToken);
+          queryClient.setQueryData(['user', newToken], response.user);
       }
-      queryClient.setQueryData(['user'], response.user);
-      queryClient.invalidateQueries({ queryKey: ['user'] });
   };
 
   const logout = async () => {
       try {
-        await api.logout();
+        if (token) await api.logout();
       } catch (e) {
         console.error("Logout error", e);
       } finally {
         localStorage.removeItem('auth_token');
         setToken(null);
         queryClient.clear();
-        queryClient.invalidateQueries();
       }
   };
 
-  // --- Data Fetching (Protected) ---
+  // Peripheral Data Queries
   const { data: walletData } = useQuery({
-    queryKey: ['wallet'],
+    queryKey: ['wallet', token],
     queryFn: api.getWallet,
     enabled: isAuthenticated,
+    retry: 3,
   });
   const wallet = safeObject<Wallet | null>(walletData, null);
 
   const { data: transactionsData } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', token],
     queryFn: api.getWalletTransactions,
     enabled: isAuthenticated,
+    retry: 3,
   });
   const transactions = safeArray<WalletTransaction>(transactionsData, []);
 
-  // --- Data Fetching (Public) ---
-  const { data: productsData } = useQuery({
-    queryKey: ['products'],
-    queryFn: api.getProducts,
-  });
+  const { data: productsData } = useQuery({ queryKey: ['products'], queryFn: api.getProducts, retry: 3 });
   const products = safeArray<Product>(productsData, []);
 
-  const { data: categoriesData } = useQuery({
-    queryKey: ['categories'],
-    queryFn: api.getCategories,
-  });
+  const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: api.getCategories, retry: 3 });
   const categories = safeArray<ProductCategory>(categoriesData, []);
 
-  const { data: pagesData } = useQuery({ queryKey: ['pages'], queryFn: () => api.getPages() });
+  const { data: pagesData } = useQuery({ queryKey: ['pages'], queryFn: () => api.getPages(), retry: 3 });
   const pages = safeArray<Page>(pagesData, []);
 
-  const { data: blogPostsData } = useQuery({ queryKey: ['blogPosts'], queryFn: api.getBlogPosts });
+  const { data: blogPostsData } = useQuery({ queryKey: ['blogPosts'], queryFn: api.getBlogPosts, retry: 3 });
   const blogPosts = safeArray<BlogPost>(blogPostsData, []);
 
-  // Derived State
   useEffect(() => {
     if (user && user.tenants && user.tenants.length > 0 && !currentTenantId) {
       setCurrentTenantId(user.tenants[0].id);
@@ -178,11 +172,10 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     document.documentElement.lang = language;
   }, [language]);
 
-  // Tenant Logic
   const baseTenant = user?.tenants?.find(t => t.id === currentTenantId) || user?.tenants?.[0] || { id: 'default', name: 'Default', type: 'PERSONAL', balance: 0 };
   const currentTenant: Tenant = {
     ...baseTenant,
-    balance: wallet ? wallet.balance : baseTenant.balance || 0
+    balance: wallet ? wallet.balance : (baseTenant.balance || 0)
   };
 
   const t = (key: string): string => {
@@ -196,12 +189,10 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const convertPrice = (priceUSD: number): string => {
     const rate = EXCHANGE_RATES[currency];
     const converted = priceUSD * rate;
-    
     if (currency === 'USD') return `$${converted.toFixed(2)}`;
     return `${Math.floor(converted).toLocaleString()} ؋`;
   };
 
-  // --- Cart Logic ---
   const addToCart = (product: Product) => {
     const newItem: CartItem = { ...product, cartId: `cart_${Date.now()}_${Math.random()}` };
     setCart(prev => [...prev, newItem]);
@@ -213,83 +204,54 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const clearCart = () => setCart([]);
 
-  // --- Mutations ---
-
-  const creditWalletMutation = useMutation({
-    mutationFn: async ({ amount, pm_type }: { amount: number, pm_type: string }) => {
-      return api.creditWallet(amount, pm_type);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-    }
-  });
-
   const creditWallet = async (amount: number, pm_type: string = 'stripe') => {
-    await creditWalletMutation.mutateAsync({ amount, pm_type });
+    await api.creditWallet(amount, pm_type);
+    queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
   };
-
-  const checkoutMutation = useMutation({
-    mutationFn: async ({ metaData, paymentMethod }: { metaData: any, paymentMethod: PaymentMethod }) => {
-      const results = [];
-      for (const item of cart) {
-          const order = await api.createOrderProduct({
-              product_id: item.id,
-              pm_type: paymentMethod.toLowerCase(),
-              quantity: 1, 
-              total_price: item.price,
-          });
-          results.push(order);
-      }
-      return results;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      queryClient.invalidateQueries({ queryKey: ['wallet'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      clearCart();
-    }
-  });
 
   const processCheckout = async (
     metaData: { playerId?: string, phone?: string, address?: string },
     paymentMethod: PaymentMethod
   ) => {
-    await checkoutMutation.mutateAsync({ metaData, paymentMethod });
+    for (const item of cart) {
+        await api.createOrderProduct({
+            product_id: item.id,
+            pm_type: paymentMethod.toLowerCase(),
+            quantity: 1, 
+            total_price: item.price,
+        });
+    }
+    queryClient.invalidateQueries({ queryKey: ['user'] });
+    queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    clearCart();
   };
 
-  const verifyEmailMutation = useMutation({
-    mutationFn: api.verifyEmail,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-    }
-  });
-  const verifyEmail = async () => await verifyEmailMutation.mutateAsync();
+  const verifyEmail = async () => {};
 
-  const updateProfileMutation = useMutation({
-    mutationFn: api.updateProfile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-    }
-  });
-  const updateProfile = async (data: Partial<User>) => await updateProfileMutation.mutateAsync(data);
+  const updateProfile = async (data: Partial<User>) => {
+    const res = await api.updateProfile(data);
+    queryClient.invalidateQueries({ queryKey: ['user'] });
+    return res;
+  };
 
   const validateCoupon = async (code: string) => {
       return await api.validateCoupon(code);
   };
 
-  const createTopUp = async (data: { phone: string; amount: number; operator: string; pm_type?: string }) => {
+  const createTopUp = async (data: { phone: string; amount: number; pm_type: string; coupon?: string }) => {
       const res = await api.createTopUp(data);
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       return res;
   };
 
-  // Mock wrappers for actions that require backend implementation of admin routes
   const addBlogPost = async (post: Omit<BlogPost, 'id' | 'created_at'>) => { return {} as BlogPost; };
   const updateBlogPost = async (id: number, post: Partial<BlogPost>) => {};
   const deleteBlogPost = async (id: number) => {};
   const addProduct = async (prod: Omit<Product, 'id'>) => { return {} as Product; };
-  const updateProduct = async (id: number, prod: Partial<Product>) => {};
+  const updateProduct = async (id: number, product: Partial<Product>) => {};
   const deleteProduct = async (id: number) => {};
 
   return (

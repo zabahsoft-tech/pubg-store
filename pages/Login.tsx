@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
@@ -7,12 +7,19 @@ import { Input } from '../components/ui/Input';
 import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { login, t } = useStore();
+  const { login, isAuthenticated } = useStore();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

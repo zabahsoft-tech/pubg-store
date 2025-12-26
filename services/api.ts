@@ -4,56 +4,80 @@ import { User, Product, ProductCategory, OrderProduct, Wallet, WalletTransaction
 /**
  * API CONFIGURATION
  */
-export const API_BASE_URL = 'https://dashboard.rahatpay.com/api';
-export const STORAGE_BASE_URL = 'https://dashboard.rahatpay.com/storage';
+export const BASE_URL = 'https://dashboard.rahatpay.com';
+export const API_BASE_URL = `${BASE_URL}/api`;
+export const STORAGE_BASE_URL = `${BASE_URL}/storage`;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const getStorageUrl = (path: string | null | undefined) => {
   if (!path) return 'https://placehold.co/600x400?text=No+Image';
   if (path.startsWith('http') || path.startsWith('https')) return path;
   
-  // Remove leading slash if present to avoid double slashes
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
   return `${STORAGE_BASE_URL}/${cleanPath}`;
 };
 
-async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}, retries = 3): Promise<T> {
   const token = localStorage.getItem('auth_token');
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   
   const headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest', 
     ...(token && { 'Authorization': `Bearer ${token}` }),
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: 'include', // Enable cookie-based session auth
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}${cleanEndpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    
-    // Handle Unauthenticated
-    if (response.status === 401) {
-        localStorage.removeItem('auth_token');
-        // We do not auto-redirect here to avoid loops, purely clear state
+    const json = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+          localStorage.removeItem('auth_token');
+      }
+
+      let errorMessage = json?.message || json?.error || `Server Error: ${response.status}`;
+      
+      // Specifically catch the "Rate limiter [api] is not defined" error
+      if (errorMessage.includes('Rate limiter [api] is not defined')) {
+          const detailedFix = "Laravel Config Error: Rate limiter [api] is not defined. " + 
+                             "Add RateLimiter::for('api', ...) to your AppServiceProvider.php boot() method.";
+          window.localStorage.setItem('api_critical_error', detailedFix);
+          errorMessage = detailedFix;
+      }
+
+      // Handle transient "database is locked" error with retry
+      if (errorMessage.includes('database is locked') && retries > 0) {
+          console.warn(`Database busy on ${endpoint}, retrying... (${retries} attempts left)`);
+          await sleep(1000 * (4 - retries)); // 1s, 2s, 3s backoff
+          return apiRequest<T>(endpoint, options, retries - 1);
+      }
+
+      throw new Error(errorMessage);
     }
 
-    throw new Error(errorData.message || `API Request Failed: ${response.status}`);
+    // Even if status is 200, if JSON is null and T expects data, it might cause length errors downstream
+    return json as T;
+  } catch (error: any) {
+    if (error.message.includes('database is locked') && retries > 0) {
+        await sleep(1000 * (4 - retries));
+        return apiRequest<T>(endpoint, options, retries - 1);
+    }
+    console.error(`API Error [${endpoint}]:`, error);
+    throw error;
   }
-
-  // Handle Laravel Resource wrappers if present, otherwise return json
-  const json = await response.json();
-  return json;
 }
 
 export const api = {
-
   // --- Auth ---
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-      // Assuming Laravel Sanctum /login endpoint returning { token, user }
       const response = await apiRequest<any>('/login', {
           method: 'POST',
           body: JSON.stringify(credentials)
@@ -73,10 +97,14 @@ export const api = {
       return apiRequest('/logout', { method: 'POST' });
   },
 
-  // --- User ---
   getUser: async (): Promise<User> => {
-    const response = await apiRequest<any>('/user');
-    return response.data || response;
+    try {
+      const response = await apiRequest<any>('/me');
+      return response.data || response;
+    } catch (e) {
+      const response = await apiRequest<any>('/user');
+      return response.data || response;
+    }
   },
 
   updateProfile: async (data: Partial<User>): Promise<User> => {
@@ -87,11 +115,7 @@ export const api = {
     return response.data || response;
   },
 
-  verifyEmail: async (): Promise<void> => {
-    return apiRequest('/email/verify', { method: 'POST' });
-  },
-
-  // --- Wallet ---
+  // --- Wallet & Transactions ---
   getWallet: async (): Promise<Wallet> => {
     const response = await apiRequest<any>('/wallet');
     return response.data || response;
@@ -118,7 +142,7 @@ export const api = {
      return response.data || response;
   },
 
-  // --- Products ---
+  // --- Products & Categories ---
   getProducts: async (): Promise<Product[]> => {
     const response = await apiRequest<any>('/products');
     return response.data || response;
@@ -134,7 +158,6 @@ export const api = {
     return response.data || response;
   },
 
-  // --- Categories ---
   getCategories: async (): Promise<ProductCategory[]> => {
     const response = await apiRequest<any>('/product-categories');
     return response.data || response;
@@ -159,7 +182,7 @@ export const api = {
       return response.data || response;
   },
 
-  // --- Blog ---
+  // --- Blog & CMS ---
   getBlogPosts: async (): Promise<BlogPost[]> => {
     const response = await apiRequest<any>('/blogs');
     return response.data || response;
@@ -170,7 +193,6 @@ export const api = {
     return response.data || response;
   },
 
-  // --- Pages ---
   getPages: async (featured?: boolean): Promise<Page[]> => {
     const query = featured ? '?featured=1' : '';
     const response = await apiRequest<any>(`/pages${query}`);
@@ -192,8 +214,7 @@ export const api = {
   },
 
   // --- Top Ups ---
-  createTopUp: async (data: { phone: string; amount: number; operator: string; pm_type?: string }): Promise<any> => {
-      // Assuming endpoint from TopUpController
+  createTopUp: async (data: { phone: string; amount: number; pm_type: string; coupon?: string }): Promise<any> => {
       const response = await apiRequest<any>('/top-ups', {
           method: 'POST',
           body: JSON.stringify(data)

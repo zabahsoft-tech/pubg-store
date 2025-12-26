@@ -9,7 +9,7 @@ export const Dashboard: React.FC = () => {
   const { user, t, convertPrice, language } = useStore();
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'completed': return 'text-green-500 bg-green-500/10 border-green-500/20';
       case 'pending': return 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20';
       case 'failed': return 'text-red-500 bg-red-500/10 border-red-500/20';
@@ -18,7 +18,7 @@ export const Dashboard: React.FC = () => {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'completed': return <CheckCircle className="w-4 h-4 mr-1" />;
       case 'pending': return <Clock className="w-4 h-4 mr-1" />;
       case 'failed': return <XCircle className="w-4 h-4 mr-1" />;
@@ -41,7 +41,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center border ${getStatusColor(order.status)}`}>
             {getStatusIcon(order.status)}
-            <span className="capitalize">{order.status}</span>
+            <span className="capitalize">{order.status || 'Pending'}</span>
             </div>
         </div>
 
@@ -66,6 +66,8 @@ export const Dashboard: React.FC = () => {
      );
   };
 
+  if (!user) return null;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -86,7 +88,7 @@ export const Dashboard: React.FC = () => {
           Order History
         </h2>
         
-        {user.orders.length === 0 ? (
+        {(!user.orders || user.orders.length === 0) ? (
           <div className="text-center py-12 bg-dark-800 rounded-xl border border-dark-700 border-dashed">
             <p className="text-gray-500">No orders found. Start shopping!</p>
           </div>

@@ -22,7 +22,7 @@ export const Navbar: React.FC = () => {
 
   const handleLogout = () => {
       logout();
-      window.location.href = 'https://dashboard.rahatpay.com/admin/login';
+      navigate('/admin/login');
       setIsUserOpen(false);
   };
 
@@ -211,19 +211,19 @@ export const Navbar: React.FC = () => {
               ) : (
                   // Guest State
                   <div className="flex items-center space-x-2">
-                     <a href="https://dashboard.rahatpay.com/admin/login">
+                     <Link to="/admin/login">
                         <Button size="sm" variant="secondary" className="hidden sm:flex">
                            <LogIn className="w-4 h-4 mr-2" /> Sign In
                         </Button>
-                     </a>
-                     <a href="https://dashboard.rahatpay.com/admin/register">
+                     </Link>
+                     <Link to="/admin/register">
                         <Button size="sm" variant="primary" className="hidden sm:flex">
                            <UserPlus className="w-4 h-4 mr-2" /> Register
                         </Button>
-                     </a>
-                     <a href="https://dashboard.rahatpay.com/admin/login" className="sm:hidden p-2 text-gray-400 hover:text-white">
+                     </Link>
+                     <Link to="/admin/login" className="sm:hidden p-2 text-gray-400 hover:text-white">
                         <LogIn className="w-6 h-6" />
-                     </a>
+                     </Link>
                   </div>
               )}
             </div>

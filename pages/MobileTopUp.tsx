@@ -15,6 +15,7 @@ export const MobileTopUp: React.FC = () => {
   const [amount, setAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('WALLET');
   const [error, setError] = useState<string | null>(null);
 
@@ -67,16 +68,23 @@ export const MobileTopUp: React.FC = () => {
   const handleRecharge = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!phoneNumber || !amount || !detectedOperator) return;
+    
+    // Basic frontend check for Laravel validation min:10
+    const numericAmount = parseFloat(amount);
+    if (!phoneNumber || !numericAmount || numericAmount < 10) {
+        setError("Minimum top-up amount is 10.");
+        return;
+    }
 
     setIsLoading(true);
     try {
-        await createTopUp({
+        const response = await createTopUp({
             phone: phoneNumber,
-            amount: parseFloat(amount),
-            operator: detectedOperator,
-            pm_type: paymentMethod.toLowerCase()
+            amount: numericAmount,
+            pm_type: paymentMethod.toLowerCase(),
+            coupon: appliedCoupon?.code
         });
+        setSuccessMessage(response.message || t('topup_success'));
         setSuccess(true);
     } catch (err: any) {
         setError(err.message || 'Top-up failed. Please try again.');
@@ -85,7 +93,7 @@ export const MobileTopUp: React.FC = () => {
     }
   };
 
-  // Calculate Finals
+  // Calculate Finals for display
   const baseAmount = parseFloat(amount) || 0;
   let finalAmount = baseAmount;
   let discountAmount = 0;
@@ -117,7 +125,7 @@ export const MobileTopUp: React.FC = () => {
           <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
              <CheckCircle className="w-10 h-10 text-green-500" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">{t('topup_success')}</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">{successMessage}</h2>
           <div className="bg-dark-900/50 rounded-lg p-4 mb-6 border border-dark-700">
              <div className="flex justify-between text-sm mb-2">
                <span className="text-gray-400">{t('number_label')}</span>
@@ -125,7 +133,7 @@ export const MobileTopUp: React.FC = () => {
              </div>
              <div className="flex justify-between text-sm mb-2">
                <span className="text-gray-400">{t('operator')}</span>
-               <span className="text-white">{detectedOperator}</span>
+               <span className="text-white">{detectedOperator || 'Detected'}</span>
              </div>
              <div className="border-t border-dark-700 my-2 pt-2 flex justify-between font-bold">
                <span className="text-gray-400">{t('amount')}</span>
@@ -141,7 +149,6 @@ export const MobileTopUp: React.FC = () => {
            {/* Left Column: Input Form */}
            <div className="lg:col-span-2 space-y-6">
               <form onSubmit={handleRecharge} className="bg-dark-800 border border-dark-700 rounded-2xl p-6 md:p-8 shadow-xl space-y-8 relative overflow-hidden">
-                {/* Decorative background glow */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
 
                 {/* Phone Input Section */}
@@ -169,12 +176,12 @@ export const MobileTopUp: React.FC = () => {
                 </div>
 
                 {/* Amount Section */}
-                <div className={`transition-all duration-500 ${detectedOperator ? 'opacity-100 translate-y-0' : 'opacity-40 translate-y-4 grayscale pointer-events-none'}`}>
-                   <label className="block text-sm font-bold text-gray-300 uppercase tracking-wider mb-4">{t('amount')}</label>
+                <div className={`transition-all duration-500 ${phoneNumber.length >= 3 ? 'opacity-100 translate-y-0' : 'opacity-40 translate-y-4 grayscale pointer-events-none'}`}>
+                   <label className="block text-sm font-bold text-gray-300 uppercase tracking-wider mb-4">{t('amount')} (Min 10)</label>
                    
-                   {/* Preset Buttons */}
+                   {/* Preset Buttons - Starting from 10 to match backend min:10 */}
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                     {[1, 2, 5, 10, 20, 50].map((val) => (
+                     {[10, 20, 50, 100, 200, 500].map((val) => (
                        <button
                          key={val}
                          type="button"
@@ -196,6 +203,7 @@ export const MobileTopUp: React.FC = () => {
                       <Input 
                         placeholder={t('enter_custom_amount')}
                         type="number"
+                        min="10"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         icon={<Hash className="w-5 h-5" />}
@@ -316,7 +324,7 @@ export const MobileTopUp: React.FC = () => {
                  <Button 
                    onClick={handleRecharge} 
                    className="w-full py-4 text-lg shadow-brand-500/20" 
-                   disabled={!detectedOperator || !amount || parseFloat(amount) <= 0 || (isBalanceInsufficient && paymentMethod === 'WALLET')} 
+                   disabled={!phoneNumber || !amount || parseFloat(amount) < 10 || (isBalanceInsufficient && paymentMethod === 'WALLET')} 
                    isLoading={isLoading}
                  >
                    <Zap className="w-5 h-5 mr-2 fill-current" />
